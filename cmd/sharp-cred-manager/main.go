@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/jlucaspains/sharp-cert-manager/internal/models"
-	"github.com/jlucaspains/sharp-cert-manager/internal/services"
+	"github.com/jlucaspains/sharp-cred-manager/internal/models"
+	"github.com/jlucaspains/sharp-cred-manager/internal/services"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +21,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "sharp-cert-manager",
+	Use:   "sharp-cred-manager",
 	Short: "A tool to check certificates.",
 	Long: `A command-line tool to check and manage SSL/TLS certificates.
 	

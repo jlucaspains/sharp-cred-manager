@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/adhocore/gronx"
-	"github.com/jlucaspains/sharp-cert-manager/internal/models"
-	"github.com/jlucaspains/sharp-cert-manager/internal/services"
+	"github.com/jlucaspains/sharp-cred-manager/internal/models"
+	"github.com/jlucaspains/sharp-cred-manager/internal/services"
 )
 
 type Notifier interface {

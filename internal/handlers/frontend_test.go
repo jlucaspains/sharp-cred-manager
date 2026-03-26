@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/jlucaspains/sharp-cert-manager/internal/models"
+	"github.com/jlucaspains/sharp-cred-manager/internal/models"
 	"github.com/stretchr/testify/assert"
 )
 

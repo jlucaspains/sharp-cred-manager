@@ -9,11 +9,11 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/jlucaspains/sharp-cert-manager/internal/handlers"
-	"github.com/jlucaspains/sharp-cert-manager/internal/jobs"
-	"github.com/jlucaspains/sharp-cert-manager/internal/midlewares"
-	"github.com/jlucaspains/sharp-cert-manager/internal/models"
-	"github.com/jlucaspains/sharp-cert-manager/internal/services"
+	"github.com/jlucaspains/sharp-cred-manager/internal/handlers"
+	"github.com/jlucaspains/sharp-cred-manager/internal/jobs"
+	"github.com/jlucaspains/sharp-cred-manager/internal/midlewares"
+	"github.com/jlucaspains/sharp-cred-manager/internal/models"
+	"github.com/jlucaspains/sharp-cred-manager/internal/services"
 	"github.com/joho/godotenv"
 )
 
@@ -46,11 +46,11 @@ func getJobNotifier() jobs.Notifier {
 }
 
 func startJobs(siteList []models.CheckCertItem) {
-	schedule, ok := os.LookupEnv("CHECK_CERT_JOB_SCHEDULE")
+	schedule, ok := os.LookupEnv("CHECK_CRED_JOB_SCHEDULE")
 
 	if ok {
 		log.Printf("Starting job engine with cron: %s", schedule)
-		level, _ := os.LookupEnv("CHECK_CERT_JOB_NOTIFICATION_LEVEL")
+		level, _ := os.LookupEnv("CHECK_CRED_JOB_NOTIFICATION_LEVEL")
 		warningDays := getCertExpirationWarningDays()
 		err := checkCertJob.Init(schedule, level, warningDays, siteList, getJobNotifier())
 		if err == nil {
@@ -65,7 +65,7 @@ func startJobs(siteList []models.CheckCertItem) {
 }
 
 func getCertExpirationWarningDays() int {
-	warningDaysConfig, _ := os.LookupEnv("CERT_WARNING_VALIDITY_DAYS")
+	warningDaysConfig, _ := os.LookupEnv("CRED_WARNING_VALIDITY_DAYS")
 	warningDays, _ := strconv.Atoi(warningDaysConfig)
 
 	if warningDays > 0 {
@@ -153,7 +153,7 @@ func startWebServer(siteList []models.CheckCertItem) {
 }
 
 func runOnce(siteList []models.CheckCertItem, done chan os.Signal) {
-	schedule, _ := os.LookupEnv("CHECK_CERT_JOB_SCHEDULE")
+	schedule, _ := os.LookupEnv("CHECK_CRED_JOB_SCHEDULE")
 	headless, _ := os.LookupEnv("HEADLESS")
 
 	if schedule != "" || headless != "true" {
@@ -161,7 +161,7 @@ func runOnce(siteList []models.CheckCertItem, done chan os.Signal) {
 	}
 
 	log.Print("Running the checkCertJob once")
-	level, _ := os.LookupEnv("CHECK_CERT_JOB_NOTIFICATION_LEVEL")
+	level, _ := os.LookupEnv("CHECK_CRED_JOB_NOTIFICATION_LEVEL")
 	warningDays := getCertExpirationWarningDays()
 	err := checkCertJob.Init("* * * * *", level, warningDays, siteList, getJobNotifier())
 	if err == nil {

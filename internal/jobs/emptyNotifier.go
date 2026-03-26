@@ -1,6 +1,6 @@
 package jobs
 
-import "github.com/jlucaspains/sharp-cert-manager/internal/models"
+import "github.com/jlucaspains/sharp-cred-manager/internal/models"
 
 type EmptyNotifier struct{}
 

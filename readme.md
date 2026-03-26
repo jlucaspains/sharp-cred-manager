@@ -1,4 +1,4 @@
-# sharp-cert-manager
+# sharp-cred-manager
 This project aims to provide a simple tool to monitor certificate validity. It is entirely built using [GO](https://go.dev/).
 
 ![Demo frontend image](/docs/demo.jpeg)
@@ -17,19 +17,19 @@ Slack message:
 ### Running webserver via Docker
 > Note: replace docker with podman if needed.
 
-The easiest way to get started is to run the Docker image published to [Docker Hub](https://hub.docker.com/repository/docker/jlucaspains/sharp-cert-manager/general). Replace the `SITE_1` parameter value with a website to monitor. To add other websites, just add parameters `SITE_n` where `n` is an integer.
+The easiest way to get started is to run the Docker image published to [Docker Hub](https://hub.docker.com/repository/docker/jlucaspains/sharp-cred-manager/general). Replace the `SITE_1` parameter value with a website to monitor. To add other websites, just add parameters `SITE_n` where `n` is an integer.
 
 ```bash
 docker run -it -p 8000:8000 \
     --env ENV=DEV \
     --env SITE_1=https://expired.badssl.com/ \
-    jlucaspains/sharp-cert-manager
+    jlucaspains/sharp-cred-manager
 ```
 
 ### Running CLI
 ```bash
-go install github.com/jlucaspains/sharp-cert-manager/cmd/sharp-cert-manager@latest
-sharp-cert-manager check --url https://expired.badssl.com/
+go install github.com/jlucaspains/sharp-cred-manager/cmd/sharp-cred-manager@latest
+sharp-cred-manager check --url https://expired.badssl.com/
 ```
 
 ## Running locally
@@ -39,12 +39,12 @@ sharp-cert-manager check --url https://expired.badssl.com/
 
 ### CLone the repo
 ```bash
-git clone https://github.com/jlucaspains/sharp-cert-manager.git
+git clone https://github.com/jlucaspains/sharp-cred-manager.git
 ```
 
 ### Install dependencies
 ```bash
-cd sharp-cert-manager
+cd sharp-cred-manager
 go mod download
 ```
 
@@ -62,7 +62,7 @@ echo "ENV=local\nSITE_1=https://expired.badssl.com/" > .env
 
 ### Run CLI
 ```bash
-go run .\cmd\sharp-cert-manager\ check --url https://expired.badssl.com/
+go run .\cmd\sharp-cred-manager\ check --url https://expired.badssl.com/
 ```
 
 ## Running in Azure
@@ -76,10 +76,10 @@ Create an ACI resource via Azure CLI. The following parameters may be adjusted
 
 ```bash
 az container create \
-    --resource-group rg-sharpcertmanager-001 \
-    --name aci-sharpcertmanager-001 \
-    --image jlucaspains/sharp-cert-manager \
-    --dns-name-label sharp-cert-manager \
+    --resource-group rg-sharpcredmanager-001 \
+    --name aci-sharpcredmanager-001 \
+    --image jlucaspains/sharp-cred-manager \
+    --dns-name-label sharp-cred-manager \
     --ports 8000 \
     --environment-variables ENV=DEV SITE_1=https://expired.badssl.com/
 ```
@@ -91,7 +91,7 @@ First, create an ACA environment using Azure CLI:
 
 ```bash
 az containerapp env create \
-    --name ace-sharpcertmanager-001 \
+    --name ace-sharpcredmanager-001 \
     --resource-group rg-experiments-soutchcentralus-001
 ```
 
@@ -103,10 +103,10 @@ Now, create the actual ACA. The following parameters may be adjusted:
 
 ```bash
 az containerapp create \
-    -n aca-sharpcertmanager-001 \
+    -n aca-sharpcredmanager-001 \
     -g rg-experiments-soutchcentralus-001 \
-    --image jlucaspains/sharp-cert-manager \
-    --environment ace-sharpcertmanager-001 \
+    --image jlucaspains/sharp-cred-manager \
+    --environment ace-sharpcredmanager-001 \
     --ingress external --target-port 8000 \
     --env-vars ENV=DEV SITE_1=https://expired.badssl.com/ \
     --query properties.configuration.ingress.fqdn
@@ -115,7 +115,7 @@ az containerapp create \
 ## Jobs and Webhook Notifications
 The app can be configured to run a job at a given schedule. The job will check the configured websites and send a message to a Webhook with a summary of the websites and their certificate validity. Currently, Teams and Slack are supported.
 
-Adjust the `CHECK_CERT_JOB_SCHEDULE` cron to run at the desired schedule.
+Adjust the `CHECK_CRED_JOB_SCHEDULE` cron to run at the desired schedule.
 
 The `WEBHOOK_URL` is the URL of the Teams/Slack Webhook to send the message to. Generate a webhook URL for Teams following [this guide](https://docs.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook#add-an-incoming-webhook-to-a-teams-channel) and for Slack following [this guide](https://api.slack.com/messaging/webhooks).
 
@@ -123,10 +123,10 @@ The `WEBHOOK_URL` is the URL of the Teams/Slack Webhook to send the message to. 
 docker run -it -p 8000:8000 `
     --env ENV=DEV `
     --env SITE_1=https://expired.badssl.com/ `
-    --env CHECK_CERT_JOB_SCHEDULE=* * * * * `
+    --env CHECK_CRED_JOB_SCHEDULE=* * * * * `
     --env WEBHOOK_URL=ReplaceWithWebhookUrl `
     --env WEBHOOK_TYPE=teams `
-    jlucaspains/sharp-cert-manager
+    jlucaspains/sharp-cred-manager
 ```
 
 ## All environment options
@@ -135,7 +135,7 @@ docker run -it -p 8000:8000 `
 | ENV                               | Environment name. Used to configure the app to run in different environments.   |                                               |
 | SITE_1..SITE_N                    | Websites to monitor.                                                            |                                               |
 | AZUREKEYVAULT_1..AZUREKEYVAULT_N  | Azure key vault certificates URLs to monitor.                                   |                                               |
-| CHECK_CERT_JOB_SCHEDULE           | Cron schedule to run the job that checks the certificates.                      |                                               |
+| CHECK_CRED_JOB_SCHEDULE           | Cron schedule to run the job that checks the certificates.                      |                                               |
 | WEBHOOK_URL                       | Webhook URL to send the message to.                                             |                                               |
 | MESSAGE_URL                       | URL to be used message action                                                   |                                               |
 | MESSAGE_TITLE                     | Message  title                                                                  | Sharp Cert Manager Summary                    |
@@ -144,8 +144,8 @@ docker run -it -p 8000:8000 `
 | WEBHOOK_TYPE                      | Defines whether teams or slack webhooks are used                                | teams                                         |
 | TLS_CERT_FILE                     | Certificate used for TLS hosting                                                |                                               |
 | TLS_CERT_KEY_FILE                 | Certificate key used for TLS hosting                                            |                                               |
-| CERT_WARNING_VALIDITY_DAYS        | Defines how many days from today a cert need to have to prevent a warning       | 30                                            |
-| CHECK_CERT_JOB_NOTIFICATION_LEVEL | Defines minimum notification level for jobs. Values are Info, Warning, or Error | Warning                                       |
+| CRED_WARNING_VALIDITY_DAYS        | Defines how many days from today a cert need to have to prevent a warning       | 30                                            |
+| CHECK_CRED_JOB_NOTIFICATION_LEVEL | Defines minimum notification level for jobs. Values are Info, Warning, or Error | Warning                                       |
 | HEADLESS                          | If set to "true", the web server does not start.                                |                                               |
 
 ## Security considerations
@@ -166,14 +166,14 @@ Below features are currentl being evaluated and/or built. If you have a suggesti
 ## Headless Mode
 The `HEADLESS` environment variable is used to determine if the web server should start. If `HEADLESS` is set to "true", the web server does not start. This can be useful for running the job task only once and exiting with a success code.
 
-To run the job task only once and exit with a success code, set `HEADLESS` to "true" and `CHECK_CERT_JOB_SCHEDULE` to an empty value.
+To run the job task only once and exit with a success code, set `HEADLESS` to "true" and `CHECK_CRED_JOB_SCHEDULE` to an empty value.
 
 Example: Running as a container app job using az cli
 ```bash
 az containerapp job create `
-    --name sharp-cert-manager `
+    --name sharp-cred-manager `
     --resource-group <resource-group> `
-    --image jlucaspains/sharp-cert-manager `
+    --image jlucaspains/sharp-cred-manager `
     --trigger-type "Schedule" `
     --replica-timeout 1800 `
     --cpu "0.25" --memory "0.5Gi" `
@@ -183,10 +183,10 @@ az containerapp job create `
     --replica-completion-count 1 `
     --env-vars ENV=DEV `
 SITE_1=https://blog.lpains.net/ `
-CERT_WARNING_VALIDITY_DAYS=90 `
+CRED_WARNING_VALIDITY_DAYS=90 `
 HEADLESS=true `
 WEBHOOK_TYPE=teams `
 WEBHOOK_URL=<webhook-url> `
 MESSAGE_MENTIONS=<user@domain.com>
-CHECK_CERT_JOB_NOTIFICATION_LEVEL=Info
+CHECK_CRED_JOB_NOTIFICATION_LEVEL=Info
 ```

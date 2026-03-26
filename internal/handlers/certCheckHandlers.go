@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/jlucaspains/sharp-cert-manager/internal/models"
-	"github.com/jlucaspains/sharp-cert-manager/internal/services"
+	"github.com/jlucaspains/sharp-cred-manager/internal/models"
+	"github.com/jlucaspains/sharp-cred-manager/internal/services"
 )
 
 func (h Handlers) GetCertList(w http.ResponseWriter, r *http.Request) {

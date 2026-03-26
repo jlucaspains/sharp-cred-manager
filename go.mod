@@ -1,4 +1,4 @@
-module github.com/jlucaspains/sharp-cert-manager
+module github.com/jlucaspains/sharp-cred-manager
 
 go 1.24.0
 
