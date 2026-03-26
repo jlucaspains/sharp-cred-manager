@@ -65,7 +65,7 @@ func startJobs(siteList []models.CheckCertItem) {
 }
 
 func getCertExpirationWarningDays() int {
-	warningDaysConfig, _ := os.LookupEnv("CRED_WARNING_VALIDITY_DAYS")
+	warningDaysConfig, _ := os.LookupEnv("CERT_WARNING_VALIDITY_DAYS")
 	warningDays, _ := strconv.Atoi(warningDaysConfig)
 
 	if warningDays > 0 {
@@ -103,7 +103,7 @@ func startWebServer(siteList []models.CheckCertItem) {
 
 	router := http.NewServeMux()
 
-	router.HandleFunc("GET /api/check-cert", handlers.CheckStatus)
+	router.HandleFunc("GET /api/check-cert", handlers.CheckCertStatus)
 	router.HandleFunc("GET /api/cert-list", handlers.GetCertList)
 	router.HandleFunc("GET /health", handlers.HealthCheck)
 

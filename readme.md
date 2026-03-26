@@ -144,7 +144,7 @@ docker run -it -p 8000:8000 `
 | WEBHOOK_TYPE                      | Defines whether teams or slack webhooks are used                                | teams                                         |
 | TLS_CERT_FILE                     | Certificate used for TLS hosting                                                |                                               |
 | TLS_CERT_KEY_FILE                 | Certificate key used for TLS hosting                                            |                                               |
-| CRED_WARNING_VALIDITY_DAYS        | Defines how many days from today a cert need to have to prevent a warning       | 30                                            |
+| CERT_WARNING_VALIDITY_DAYS        | Defines how many days from today a cert need to have to prevent a warning       | 30                                            |
 | CHECK_CRED_JOB_NOTIFICATION_LEVEL | Defines minimum notification level for jobs. Values are Info, Warning, or Error | Warning                                       |
 | HEADLESS                          | If set to "true", the web server does not start.                                |                                               |
 
@@ -183,7 +183,7 @@ az containerapp job create `
     --replica-completion-count 1 `
     --env-vars ENV=DEV `
 SITE_1=https://blog.lpains.net/ `
-CRED_WARNING_VALIDITY_DAYS=90 `
+CERT_WARNING_VALIDITY_DAYS=90 `
 HEADLESS=true `
 WEBHOOK_TYPE=teams `
 WEBHOOK_URL=<webhook-url> `

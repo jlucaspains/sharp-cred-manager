@@ -15,7 +15,7 @@ func (h Handlers) GetCertList(w http.ResponseWriter, r *http.Request) {
 	h.JSON(w, http.StatusOK, result)
 }
 
-func (h Handlers) CheckStatus(w http.ResponseWriter, r *http.Request) {
+func (h Handlers) CheckCertStatus(w http.ResponseWriter, r *http.Request) {
 	name, _ := h.getQueryParam(r, "name")
 
 	log.Println("Received message for name: " + name)
