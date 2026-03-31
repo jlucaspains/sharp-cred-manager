@@ -46,7 +46,7 @@ AZUREKEYVAULTSECRET_N env var
 - Update tests in `internal/services/certService_test.go`
 
 ### 3. Frontend – Tabbed Dashboard
-> Status: Not Started
+> Status: Complete
 
 - Refactor `frontend/body.html`:
   - Add tab bar (Certificates / Secrets)
