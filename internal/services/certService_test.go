@@ -35,7 +35,7 @@ func TestGetCheckStatusAzure(t *testing.T) {
 	name := "testfake.vault.azure.net/test-fake"
 	mockAzureResult = createCertificate()
 
-	err := os.WriteFile("D:\\cert.cer", mockAzureResult, os.FileMode(0644))
+	err := os.WriteFile("./cert.cer", mockAzureResult, os.FileMode(0644))
 
 	body, err := CheckCertStatus(models.CheckCertItem{Name: name, Url: url, Type: models.CertCheckAzure}, 30)
 
