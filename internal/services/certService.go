@@ -51,7 +51,7 @@ func GetConfigCerts() []models.CheckCertItem {
 	}
 
 	for i := 1; true; i++ {
-		rawUrl, ok := os.LookupEnv(fmt.Sprintf("AZUREKEYVAULT_%d", i))
+		rawUrl, ok := os.LookupEnv(fmt.Sprintf("AZUREKEYVAULTCERT_%d", i))
 		if !ok {
 			break
 		}
