@@ -10,14 +10,18 @@ import (
 
 func TestInitTemplate(t *testing.T) {
 	templatePath = "../../frontend"
+	indexTemplate = nil
 	initTemplates()
 
 	assert.NotNil(t, indexTemplate.Lookup("index.html"))
 	assert.NotNil(t, indexTemplate.Lookup("body.html"))
 	assert.NotNil(t, indexTemplate.Lookup("head.html"))
-	assert.NotNil(t, indexTemplate.Lookup("item.html"))
+	assert.NotNil(t, indexTemplate.Lookup("certItem.html"))
 	assert.NotNil(t, indexTemplate.Lookup("itemLoaded.html"))
 	assert.NotNil(t, indexTemplate.Lookup("itemModal.html"))
+	assert.NotNil(t, indexTemplate.Lookup("secretItem.html"))
+	assert.NotNil(t, indexTemplate.Lookup("secretItemLoaded.html"))
+	assert.NotNil(t, indexTemplate.Lookup("secretItemModal.html"))
 }
 
 func TestRendersIndex(t *testing.T) {
@@ -37,6 +41,10 @@ func TestRendersIndex(t *testing.T) {
 	// Testing the full HTML content is not practical, so we check for specific elements
 	assert.Contains(t, body, "data-testid=\"result-item\"")
 	assert.Contains(t, body, "hx-get=\"/item?name=blog.lpains.net\"")
+	assert.Contains(t, body, "id=\"tab-btn-certs\"")
+	assert.Contains(t, body, "id=\"tab-btn-secrets\"")
+	assert.Contains(t, body, "id=\"panel-certs\"")
+	assert.Contains(t, body, "id=\"panel-secrets\"")
 }
 
 func TestRendersItem(t *testing.T) {
