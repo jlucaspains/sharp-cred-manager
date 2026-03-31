@@ -115,7 +115,7 @@ az containerapp create \
 ## Jobs and Webhook Notifications
 The app can be configured to run a job at a given schedule. The job will check the configured websites and send a message to a Webhook with a summary of the websites and their certificate validity. Currently, Teams and Slack are supported.
 
-Adjust the `CHECK_CRED_JOB_SCHEDULE` cron to run at the desired schedule.
+Adjust the `CHECK_CERT_JOB_SCHEDULE` cron to run at the desired schedule.
 
 The `WEBHOOK_URL` is the URL of the Teams/Slack Webhook to send the message to. Generate a webhook URL for Teams following [this guide](https://docs.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook#add-an-incoming-webhook-to-a-teams-channel) and for Slack following [this guide](https://api.slack.com/messaging/webhooks).
 
@@ -123,7 +123,7 @@ The `WEBHOOK_URL` is the URL of the Teams/Slack Webhook to send the message to. 
 docker run -it -p 8000:8000 `
     --env ENV=DEV `
     --env SITE_1=https://expired.badssl.com/ `
-    --env CHECK_CRED_JOB_SCHEDULE=* * * * * `
+    --env CHECK_CERT_JOB_SCHEDULE=* * * * * `
     --env WEBHOOK_URL=ReplaceWithWebhookUrl `
     --env WEBHOOK_TYPE=teams `
     jlucaspains/sharp-cred-manager
@@ -135,7 +135,7 @@ docker run -it -p 8000:8000 `
 | ENV                               | Environment name. Used to configure the app to run in different environments.   |                                               |
 | SITE_1..SITE_N                    | Websites to monitor.                                                            |                                               |
 | AZUREKEYVAULT_1..AZUREKEYVAULT_N  | Azure key vault certificates URLs to monitor.                                   |                                               |
-| CHECK_CRED_JOB_SCHEDULE           | Cron schedule to run the job that checks the certificates.                      |                                               |
+| CHECK_CERT_JOB_SCHEDULE           | Cron schedule to run the job that checks the certificates.                      |                                               |
 | WEBHOOK_URL                       | Webhook URL to send the message to.                                             |                                               |
 | MESSAGE_URL                       | URL to be used message action                                                   |                                               |
 | MESSAGE_TITLE                     | Message  title                                                                  | Sharp Cert Manager Summary                    |
@@ -166,7 +166,7 @@ Below features are currentl being evaluated and/or built. If you have a suggesti
 ## Headless Mode
 The `HEADLESS` environment variable is used to determine if the web server should start. If `HEADLESS` is set to "true", the web server does not start. This can be useful for running the job task only once and exiting with a success code.
 
-To run the job task only once and exit with a success code, set `HEADLESS` to "true" and `CHECK_CRED_JOB_SCHEDULE` to an empty value.
+To run the job task only once and exit with a success code, set `HEADLESS` to "true" and `CHECK_CERT_JOB_SCHEDULE` to an empty value.
 
 Example: Running as a container app job using az cli
 ```bash

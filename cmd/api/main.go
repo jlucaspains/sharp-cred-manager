@@ -46,7 +46,7 @@ func getJobNotifier() jobs.Notifier {
 }
 
 func startJobs(siteList []models.CheckCertItem) {
-	schedule, ok := os.LookupEnv("CHECK_CRED_JOB_SCHEDULE")
+	schedule, ok := os.LookupEnv("CHECK_CERT_JOB_SCHEDULE")
 
 	if ok {
 		log.Printf("Starting job engine with cron: %s", schedule)
@@ -153,7 +153,7 @@ func startWebServer(siteList []models.CheckCertItem) {
 }
 
 func runOnce(siteList []models.CheckCertItem, done chan os.Signal) {
-	schedule, _ := os.LookupEnv("CHECK_CRED_JOB_SCHEDULE")
+	schedule, _ := os.LookupEnv("CHECK_CERT_JOB_SCHEDULE")
 	headless, _ := os.LookupEnv("HEADLESS")
 
 	if schedule != "" || headless != "true" {
