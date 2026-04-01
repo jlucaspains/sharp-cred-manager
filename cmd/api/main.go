@@ -75,6 +75,17 @@ func getCertExpirationWarningDays() int {
 	return 30
 }
 
+func getSecretWarningValidityDays() int {
+	warningDaysConfig, _ := os.LookupEnv("SECRET_WARNING_VALIDITY_DAYS")
+	warningDays, _ := strconv.Atoi(warningDaysConfig)
+
+	if warningDays > 0 {
+		return warningDays
+	}
+
+	return 30
+}
+
 func getCORSOrigins() string {
 	corsOrigins, ok := os.LookupEnv("CORS_ORIGINS")
 	if ok {
@@ -88,7 +99,7 @@ func stopJobs() {
 	checkCertJob.Stop()
 }
 
-func startWebServer(siteList []models.CheckCertItem) {
+func startWebServer(siteList []models.CheckCertItem, secretList []models.CheckSecretItem) {
 	headless, _ := os.LookupEnv("HEADLESS")
 
 	if headless == "true" {
@@ -99,12 +110,16 @@ func startWebServer(siteList []models.CheckCertItem) {
 	handlers := &handlers.Handlers{}
 	handlers.CertList = siteList
 	handlers.ExpirationWarningDays = getCertExpirationWarningDays()
+	handlers.SecretList = secretList
+	handlers.SecretWarningValidityDays = getSecretWarningValidityDays()
 	handlers.CORSOrigins = getCORSOrigins()
 
 	router := http.NewServeMux()
 
 	router.HandleFunc("GET /api/check-cert", handlers.CheckCertStatus)
 	router.HandleFunc("GET /api/cert-list", handlers.GetCertList)
+	router.HandleFunc("GET /api/secret-list", handlers.GetSecretList)
+	router.HandleFunc("GET /api/check-secret", handlers.CheckSecretStatus)
 	router.HandleFunc("GET /health", handlers.HealthCheck)
 
 	if handlers.CORSOrigins != "" {
@@ -178,11 +193,12 @@ func main() {
 	loadEnv()
 
 	siteList := services.GetConfigCerts()
+	secretList := services.GetConfigSecrets()
 
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	startWebServer(siteList)
+	startWebServer(siteList, secretList)
 	startJobs(siteList)
 	runOnce(siteList, done)
 

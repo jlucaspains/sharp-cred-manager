@@ -35,3 +35,18 @@ func TestGetCORSOrigins(t *testing.T) {
 
 	assert.Equal(t, "https://localhost", origins)
 }
+
+func TestGetSecretWarningValidityDaysDefault(t *testing.T) {
+	os.Unsetenv("SECRET_WARNING_VALIDITY_DAYS")
+	warningDays := getSecretWarningValidityDays()
+
+	assert.Equal(t, 30, warningDays)
+}
+
+func TestGetSecretWarningValidityDaysCustom(t *testing.T) {
+	os.Setenv("SECRET_WARNING_VALIDITY_DAYS", "60")
+	defer os.Unsetenv("SECRET_WARNING_VALIDITY_DAYS")
+	warningDays := getSecretWarningValidityDays()
+
+	assert.Equal(t, 60, warningDays)
+}
