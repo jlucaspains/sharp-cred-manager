@@ -3,8 +3,11 @@ package handlers
 import (
 	"net/http"
 	"testing"
+	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets"
 	"github.com/jlucaspains/sharp-cred-manager/internal/models"
+	"github.com/jlucaspains/sharp-cred-manager/internal/services"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,6 +23,7 @@ func TestInitTemplate(t *testing.T) {
 	assert.NotNil(t, indexTemplate.Lookup("itemLoaded.html"))
 	assert.NotNil(t, indexTemplate.Lookup("itemModal.html"))
 	assert.NotNil(t, indexTemplate.Lookup("secretItem.html"))
+	assert.NotNil(t, indexTemplate.Lookup("secretsPanel.html"))
 	assert.NotNil(t, indexTemplate.Lookup("secretItemLoaded.html"))
 	assert.NotNil(t, indexTemplate.Lookup("secretItemModal.html"))
 }
@@ -200,4 +204,180 @@ func TestRendersEmpty(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 200, code)
 	assert.Equal(t, body, "")
+}
+
+func TestRendersSecretsPanel(t *testing.T) {
+	templatePath = "../../frontend"
+	indexTemplate = nil
+	handlers := new(Handlers)
+	handlers.SecretList = []models.CheckSecretItem{
+		{Name: "testfake.vault.azure.net/my-secret", Url: "https://testfake.vault.azure.net/secrets/my-secret", Type: models.SecretCheckAzure, SecretName: "my-secret"},
+	}
+
+	router := http.NewServeMux()
+	router.HandleFunc("GET /secrets-panel", handlers.GetSecretsPanel)
+
+	code, _, body, _, err := makeRequest[string](router, "GET", "/secrets-panel", nil)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 200, code)
+	assert.Contains(t, body, "data-testid=\"result-item\"")
+	assert.Contains(t, body, "hx-get=\"/secret-item?name=testfake.vault.azure.net/my-secret\"")
+}
+
+func TestRendersSecretItem(t *testing.T) {
+	templatePath = "../../frontend"
+	expiresAt := time.Now().UTC().Add(90 * 24 * time.Hour)
+	enabled := true
+	contentType := "text/plain"
+	services.SetMockSecretResult(&azsecrets.Secret{
+		Attributes: &azsecrets.SecretAttributes{
+			Enabled: &enabled,
+			Expires: &expiresAt,
+		},
+		ContentType: &contentType,
+	})
+	defer services.SetMockSecretResult(nil)
+
+	handlers := new(Handlers)
+	handlers.SecretList = []models.CheckSecretItem{
+		{Name: "testfake.vault.azure.net/my-secret", Url: "https://testfake.vault.azure.net/secrets/my-secret", Type: models.SecretCheckAzure, SecretName: "my-secret"},
+	}
+
+	router := http.NewServeMux()
+	router.HandleFunc("GET /secret-item", handlers.GetSecretItem)
+
+	code, _, body, _, err := makeRequest[string](router, "GET", "/secret-item?name=testfake.vault.azure.net/my-secret", nil)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 200, code)
+	assert.Contains(t, body, "hx-get=\"/secret-item-detail?name=testfake.vault.azure.net/my-secret\"")
+	assert.Contains(t, body, "<h2 class=\"text-white text-lg font-medium\">testfake.vault.azure.net/my-secret</h2>")
+}
+
+func TestRendersSecretItemError(t *testing.T) {
+	templatePath = "../frontend"
+	handlers := new(Handlers)
+	handlers.SecretList = []models.CheckSecretItem{
+		{Name: "testfake.vault.azure.net/my-secret", Url: "https://testfake.vault.azure.net/secrets/my-secret", Type: models.SecretCheckAzure, SecretName: "my-secret"},
+	}
+
+	router := http.NewServeMux()
+	router.HandleFunc("GET /secret-item", handlers.GetSecretItem)
+
+	code, _, body, _, err := makeRequest[string](router, "GET", "/secret-item?name=testfake.vault.azure.net/my-secret", nil)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 500, code)
+	assert.Contains(t, body, "Failed to process request")
+}
+
+func TestRendersSecretItemNoName(t *testing.T) {
+	handlers := new(Handlers)
+	handlers.SecretList = []models.CheckSecretItem{
+		{Name: "testfake.vault.azure.net/my-secret", Url: "https://testfake.vault.azure.net/secrets/my-secret", Type: models.SecretCheckAzure, SecretName: "my-secret"},
+	}
+
+	router := http.NewServeMux()
+	router.HandleFunc("GET /secret-item", handlers.GetSecretItem)
+
+	code, _, body, _, err := makeRequest[string](router, "GET", "/secret-item", nil)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 400, code)
+	assert.Contains(t, body, "name is required")
+}
+
+func TestRendersSecretItemBadName(t *testing.T) {
+	handlers := new(Handlers)
+	handlers.SecretList = []models.CheckSecretItem{
+		{Name: "testfake.vault.azure.net/my-secret", Url: "https://testfake.vault.azure.net/secrets/my-secret", Type: models.SecretCheckAzure, SecretName: "my-secret"},
+	}
+
+	router := http.NewServeMux()
+	router.HandleFunc("GET /secret-item", handlers.GetSecretItem)
+
+	code, _, body, _, err := makeRequest[string](router, "GET", "/secret-item?name=unknown.vault.azure.net/bad-secret", nil)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 400, code)
+	assert.Contains(t, body, "the provided secret name is not configured")
+}
+
+func TestRendersSecretItemDetail(t *testing.T) {
+	templatePath = "../../frontend"
+	expiresAt := time.Now().UTC().Add(90 * 24 * time.Hour)
+	enabled := true
+	contentType := "text/plain"
+	services.SetMockSecretResult(&azsecrets.Secret{
+		Attributes: &azsecrets.SecretAttributes{
+			Enabled: &enabled,
+			Expires: &expiresAt,
+		},
+		ContentType: &contentType,
+	})
+	defer services.SetMockSecretResult(nil)
+
+	handlers := new(Handlers)
+	handlers.SecretList = []models.CheckSecretItem{
+		{Name: "testfake.vault.azure.net/my-secret", Url: "https://testfake.vault.azure.net/secrets/my-secret", Type: models.SecretCheckAzure, SecretName: "my-secret"},
+	}
+
+	router := http.NewServeMux()
+	router.HandleFunc("GET /secret-item-detail", handlers.GetSecretItemDetail)
+
+	code, _, body, _, err := makeRequest[string](router, "GET", "/secret-item-detail?name=testfake.vault.azure.net/my-secret", nil)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 200, code)
+	assert.Contains(t, body, "<td class=\"px-4 py-2\">testfake.vault.azure.net/my-secret</td>")
+}
+
+func TestRendersSecretItemDetailError(t *testing.T) {
+	templatePath = "../frontend"
+	handlers := new(Handlers)
+	handlers.SecretList = []models.CheckSecretItem{
+		{Name: "testfake.vault.azure.net/my-secret", Url: "https://testfake.vault.azure.net/secrets/my-secret", Type: models.SecretCheckAzure, SecretName: "my-secret"},
+	}
+
+	router := http.NewServeMux()
+	router.HandleFunc("GET /secret-item-detail", handlers.GetSecretItemDetail)
+
+	code, _, body, _, err := makeRequest[string](router, "GET", "/secret-item-detail?name=testfake.vault.azure.net/my-secret", nil)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 500, code)
+	assert.Contains(t, body, "Failed to process request")
+}
+
+func TestRendersSecretItemDetailNoName(t *testing.T) {
+	handlers := new(Handlers)
+	handlers.SecretList = []models.CheckSecretItem{
+		{Name: "testfake.vault.azure.net/my-secret", Url: "https://testfake.vault.azure.net/secrets/my-secret", Type: models.SecretCheckAzure, SecretName: "my-secret"},
+	}
+
+	router := http.NewServeMux()
+	router.HandleFunc("GET /secret-item-detail", handlers.GetSecretItemDetail)
+
+	code, _, body, _, err := makeRequest[string](router, "GET", "/secret-item-detail", nil)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 400, code)
+	assert.Contains(t, body, "name is required")
+}
+
+func TestRendersSecretItemDetailBadName(t *testing.T) {
+	handlers := new(Handlers)
+	handlers.SecretList = []models.CheckSecretItem{
+		{Name: "testfake.vault.azure.net/my-secret", Url: "https://testfake.vault.azure.net/secrets/my-secret", Type: models.SecretCheckAzure, SecretName: "my-secret"},
+	}
+
+	router := http.NewServeMux()
+	router.HandleFunc("GET /secret-item-detail", handlers.GetSecretItemDetail)
+
+	code, _, body, _, err := makeRequest[string](router, "GET", "/secret-item-detail?name=unknown.vault.azure.net/bad-secret", nil)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 400, code)
+	assert.Contains(t, body, "the provided secret name is not configured")
 }

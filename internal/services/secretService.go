@@ -18,6 +18,11 @@ import (
 var mockSecretResult *azsecrets.Secret = nil
 var mockSecretListResult []*azsecrets.SecretProperties = nil
 
+// SetMockSecretResult injects a mock secret for use in tests across packages.
+func SetMockSecretResult(mock *azsecrets.Secret) {
+	mockSecretResult = mock
+}
+
 func GetConfigSecrets() []models.CheckSecretItem {
 	result := []models.CheckSecretItem{}
 	for i := 1; true; i++ {

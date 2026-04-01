@@ -129,6 +129,9 @@ func startWebServer(siteList []models.CheckCertItem, secretList []models.CheckSe
 	router.HandleFunc("GET /", handlers.Index)
 	router.HandleFunc("GET /item", handlers.GetItem)
 	router.HandleFunc("GET /itemDetail", handlers.GetItemDetail)
+	router.HandleFunc("GET /secrets-panel", handlers.GetSecretsPanel)
+	router.HandleFunc("GET /secret-item", handlers.GetSecretItem)
+	router.HandleFunc("GET /secret-item-detail", handlers.GetSecretItemDetail)
 	router.HandleFunc("GET /empty", handlers.GetEmpty)
 	router.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./public/"))))
 
