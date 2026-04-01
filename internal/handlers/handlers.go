@@ -10,9 +10,11 @@ import (
 )
 
 type Handlers struct {
-	CertList              []models.CheckCertItem
-	ExpirationWarningDays int
-	CORSOrigins           string
+	CertList                 []models.CheckCertItem
+	ExpirationWarningDays    int
+	SecretList               []models.CheckSecretItem
+	SecretWarningValidityDays int
+	CORSOrigins              string
 }
 
 func (h Handlers) JSON(w http.ResponseWriter, statusCode int, data any) {
