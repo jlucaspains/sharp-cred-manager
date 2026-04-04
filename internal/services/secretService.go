@@ -15,11 +15,11 @@ import (
 	"github.com/jlucaspains/sharp-cred-manager/internal/models"
 )
 
-var mockSecretResult *azsecrets.Secret = nil
+var mockSecretResult *azsecrets.SecretProperties = nil
 var mockSecretListResult []*azsecrets.SecretProperties = nil
 
 // SetMockSecretResult injects a mock secret for use in tests across packages.
-func SetMockSecretResult(mock *azsecrets.Secret) {
+func SetMockSecretResult(mock *azsecrets.SecretProperties) {
 	mockSecretResult = mock
 }
 
@@ -107,9 +107,11 @@ func checkAzureSecretStatus(item models.CheckSecretItem, warningDays int) (*mode
 	return buildSecretCheckResult(item, secret, warningDays), nil
 }
 
-func buildSecretCheckResult(item models.CheckSecretItem, secret *azsecrets.Secret, warningDays int) *models.SecretCheckResult {
+func buildSecretCheckResult(item models.CheckSecretItem, secret *azsecrets.SecretProperties, warningDays int) *models.SecretCheckResult {
 	result := &models.SecretCheckResult{
 		Name:             item.Name,
+		DisplayName:      item.SecretName,
+		Source:           strings.Replace(item.Name, item.SecretName, "", -1),
 		Url:              item.Url,
 		Type:             item.Type,
 		IsValid:          true,
@@ -141,6 +143,7 @@ func buildSecretCheckResult(item models.CheckSecretItem, secret *azsecrets.Secre
 
 		if secret.Attributes.Expires != nil {
 			expiresOn := secret.Attributes.Expires.UTC()
+			result.HasExpiration = true
 			if expiresOn.Before(now) {
 				result.IsValid = false
 				result.ValidationIssues = append(result.ValidationIssues, "Secret is expired")
@@ -156,7 +159,7 @@ func buildSecretCheckResult(item models.CheckSecretItem, secret *azsecrets.Secre
 	return result
 }
 
-func getSecretFromKeyVault(vaultUrl, secretName string) (*azsecrets.Secret, error) {
+func getSecretFromKeyVault(vaultUrl, secretName string) (*azsecrets.SecretProperties, error) {
 	if mockSecretResult != nil {
 		return mockSecretResult, nil
 	}
@@ -173,13 +176,18 @@ func getSecretFromKeyVault(vaultUrl, secretName string) (*azsecrets.Secret, erro
 
 	log.Printf("Getting secret from Azure Key Vault: %s", secretName)
 
-	response, err := secretClient.GetSecret(context.Background(), secretName, "", nil)
-	if err != nil {
-		return nil, err
+	pager := secretClient.NewListSecretPropertiesVersionsPager(secretName, nil)
+	var results []*azsecrets.SecretProperties
+	for pager.More() {
+		page, err := pager.NextPage(context.Background())
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, page.Value...)
 	}
 
-	secret := response.Secret
-	return &secret, nil
+	// TODO: only showing the first version for now, may want to evaluate all versions in the future
+	return results[0], nil
 }
 
 func listSecretsFromVault(vaultUrl string) ([]*azsecrets.SecretProperties, error) {

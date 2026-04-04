@@ -10,6 +10,8 @@ const (
 
 type SecretCheckResult struct {
 	Name              string          `json:"name"`
+	DisplayName       string          `json:"displayName"`
+	Source            string          `json:"source"`
 	Url               string          `json:"url"`
 	Type              SecretCheckType `json:"type"`
 	ContentType       string          `json:"contentType"`
@@ -19,6 +21,7 @@ type SecretCheckResult struct {
 	IsValid           bool            `json:"isValid"`
 	ValidationIssues  []string        `json:"validationIssues"`
 	ExpirationWarning bool            `json:"expirationWarning"`
+	HasExpiration     bool            `json:"hasExpiration"`
 	ValidityInDays    int             `json:"validityInDays"`
 }
 

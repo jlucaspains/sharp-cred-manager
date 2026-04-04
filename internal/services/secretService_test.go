@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func createMockSecret(enabled bool, expiresAt time.Time, notBefore *time.Time) *azsecrets.Secret {
+func createMockSecret(enabled bool, expiresAt time.Time, notBefore *time.Time) *azsecrets.SecretProperties {
 	contentType := "text/plain"
-	return &azsecrets.Secret{
+	return &azsecrets.SecretProperties{
 		Attributes: &azsecrets.SecretAttributes{
 			Enabled:   &enabled,
 			Expires:   &expiresAt,

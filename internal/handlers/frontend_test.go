@@ -230,7 +230,7 @@ func TestRendersSecretItem(t *testing.T) {
 	expiresAt := time.Now().UTC().Add(90 * 24 * time.Hour)
 	enabled := true
 	contentType := "text/plain"
-	services.SetMockSecretResult(&azsecrets.Secret{
+	services.SetMockSecretResult(&azsecrets.SecretProperties{
 		Attributes: &azsecrets.SecretAttributes{
 			Enabled: &enabled,
 			Expires: &expiresAt,
@@ -309,7 +309,7 @@ func TestRendersSecretItemDetail(t *testing.T) {
 	expiresAt := time.Now().UTC().Add(90 * 24 * time.Hour)
 	enabled := true
 	contentType := "text/plain"
-	services.SetMockSecretResult(&azsecrets.Secret{
+	services.SetMockSecretResult(&azsecrets.SecretProperties{
 		Attributes: &azsecrets.SecretAttributes{
 			Enabled: &enabled,
 			Expires: &expiresAt,

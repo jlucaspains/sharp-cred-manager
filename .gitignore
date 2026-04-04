@@ -8,3 +8,4 @@ tmp
 *.cer
 *.key
 cover.out
+.DS_Store
