@@ -252,7 +252,7 @@ func TestRendersSecretItem(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 200, code)
 	assert.Contains(t, body, "hx-get=\"/secret-item-detail?name=testfake.vault.azure.net/my-secret\"")
-	assert.Contains(t, body, "<h2 class=\"text-white text-lg font-medium\">testfake.vault.azure.net/my-secret</h2>")
+	assert.Contains(t, body, "<h2 class=\"text-white text-lg font-medium\">my-secret</h2>")
 }
 
 func TestRendersSecretItemError(t *testing.T) {

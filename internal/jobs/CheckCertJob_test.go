@@ -13,7 +13,7 @@ type mockNotifier struct {
 	executed bool
 }
 
-func (m *mockNotifier) Notify(result []CertCheckNotification) error {
+func (m *mockNotifier) Notify(result []CheckNotification) error {
 	m.executed = true
 	return nil
 }
@@ -137,7 +137,7 @@ func TestGetNotificationModelValidCertWithWarning(t *testing.T) {
 
 	assert.True(t, result.IsValid)
 	assert.True(t, result.ExpirationWarning)
-	assert.Equal(t, "test.example.com", result.Hostname)
+	assert.Equal(t, "test.example.com", result.Name)
 	assert.True(t, len(result.Messages) > 0, "Messages should contain expiration date")
 	assert.True(t, strings.Contains(result.Messages[0], "Certificate expires in"), "Should contain expiration message")
 	assert.True(t, strings.Contains(result.Messages[0], "days"), "Should contain 'days' in message")
@@ -160,7 +160,7 @@ func TestGetNotificationModelValidCertWithoutWarning(t *testing.T) {
 
 	assert.True(t, result.IsValid)
 	assert.False(t, result.ExpirationWarning)
-	assert.Equal(t, "test.example.com", result.Hostname)
+	assert.Equal(t, "test.example.com", result.Name)
 	assert.True(t, len(result.Messages) > 0, "Messages should contain expiration date even without warning")
 	assert.True(t, strings.Contains(result.Messages[0], "Certificate expires in"), "Should contain expiration message")
 }

@@ -16,17 +16,27 @@ const slackMessageTemplate = `{
 		{{- $max := len (slice .Items 1)}}
 		{{- range $i, $item := .Items}}
 		{
+			{{- $itemName := replace ($item.Name) "/" " / "}}
 			"type": "section",
 			"text": {
 				"type": "mrkdwn",
-				"text": "{{if not $item.IsValid}}:x:{{else if $item.ExpirationWarning}}:warning:{{else}}:white_check_mark:{{end}}\t*{{$item.Hostname}}*\n{{ range $index, $element := $item.Messages}}{{if $index}}, {{end}}{{$element}}{{end}}"
+				"text": "{{if not $item.IsValid}}:x:{{else if $item.ExpirationWarning}}:warning:{{else}}:white_check_mark:{{end}}\t*{{$itemName}}*\n{{ range $index, $element := $item.Messages}}{{if $index}}, {{end}}{{$element}}{{end}}"
 			}
 		},
 		{{- end}}
+		{{- else}}
+		{
+			"type": "section",
+			"text": {
+				"type": "mrkdwn",
+				"text": "No items to display"
+			}
+		},
 		{{- end}}
 		{
 			"type": "divider"
 		},
+		{{- if gt (len .NotificationUrl) 0}}
 		{
 			"type": "actions",
 			"elements": [
@@ -42,6 +52,7 @@ const slackMessageTemplate = `{
 				}
 			]
 		}
+		{{- end}}
 	]
 }`
 
@@ -95,7 +106,7 @@ const teamsMessageTemplate = `{
 									"items": [
 										{
 										"type": "TextBlock",
-										"text": "{{if not $item.IsValid}}❌{{else if $item.ExpirationWarning}}⚠️{{else}}✔️{{end}}{{$item.Hostname}}"
+										"text": "{{if not $item.IsValid}}❌{{else if $item.ExpirationWarning}}⚠️{{else}}✔️{{end}}{{$item.Name}}"
 										}
 									]
 								},
@@ -112,6 +123,21 @@ const teamsMessageTemplate = `{
 							]
 						}{{if lt $i $max}},{{end}}
 						{{- end}}
+						{{- else}}
+						{
+							"type": "TableRow",
+							"cells": [
+								{
+									"type": "TableCell",
+									"items": [
+										{
+										"type": "TextBlock",
+										"text": "No items to display"
+										}
+									]
+								}
+							]
+						}
 						{{- end}}
 					]
 				}
@@ -150,6 +176,10 @@ const (
 	Teams NotifierType = iota
 	Slack
 )
+
+func (n NotifierType) String() string {
+	return [...]string{"Teams", "Slack"}[n]
+}
 
 var Notifiers = map[string]NotifierType{
 	"teams": Teams,

@@ -25,6 +25,11 @@ func SetMockSecretResult(mock *azsecrets.SecretProperties) {
 
 func GetConfigSecrets() []models.CheckSecretItem {
 	result := []models.CheckSecretItem{}
+	includeDisabledConfig, ok := os.LookupEnv("SECRET_CHECK_INCLUDE_DISABLED")
+	includeDisabled := ok && strings.ToLower(includeDisabledConfig) == "true"
+	requireExpireDateConfig, ok := os.LookupEnv("SECRET_CHECK_REQUIRE_EXPIRE_DATE")
+	requireExpireDate := !ok || strings.ToLower(requireExpireDateConfig) == "true"
+
 	for i := 1; true; i++ {
 		rawUrl, ok := os.LookupEnv(fmt.Sprintf("AZUREKEYVAULTSECRET_%d", i))
 		if !ok {
@@ -55,7 +60,9 @@ func GetConfigSecrets() []models.CheckSecretItem {
 				continue
 			}
 			for _, s := range secrets {
-				if s.ID == nil {
+				isDisabled := s.Attributes != nil && s.Attributes.Enabled != nil && !*s.Attributes.Enabled
+				hasExpireDate := s.Attributes != nil && s.Attributes.Expires != nil
+				if s.ID == nil || (isDisabled && !includeDisabled) || (requireExpireDate && !hasExpireDate) {
 					continue
 				}
 				secretUrl := string(*s.ID)

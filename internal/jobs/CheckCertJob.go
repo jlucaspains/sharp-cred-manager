@@ -11,7 +11,7 @@ import (
 )
 
 type Notifier interface {
-	Notify(result []CertCheckNotification) error
+	Notify(result []CheckNotification) error
 	IsReady() bool
 }
 
@@ -40,8 +40,8 @@ var levels = map[string]Level{
 	"Error":   Error,
 }
 
-type CertCheckNotification struct {
-	Hostname          string
+type CheckNotification struct {
+	Name              string
 	IsValid           bool
 	Messages          []string
 	ExpirationWarning bool
@@ -111,7 +111,7 @@ func (c *CheckCertJob) tryExecute() {
 }
 
 func (c *CheckCertJob) execute() {
-	result := []CertCheckNotification{}
+	result := []CheckNotification{}
 	for _, item := range c.certList {
 		checkStatus, err := services.CheckCertStatus(item, c.warningDays)
 
@@ -135,13 +135,13 @@ func (c *CheckCertJob) execute() {
 	}
 }
 
-func (c *CheckCertJob) shouldNotify(model CertCheckNotification) bool {
+func (c *CheckCertJob) shouldNotify(model CheckNotification) bool {
 	return c.level == Info || !model.IsValid || (c.level == Warning && model.ExpirationWarning)
 }
 
-func (c *CheckCertJob) getNotificationModel(certificate *models.CertCheckResult) CertCheckNotification {
-	result := CertCheckNotification{
-		Hostname:          certificate.Hostname,
+func (c *CheckCertJob) getNotificationModel(certificate *models.CertCheckResult) CheckNotification {
+	result := CheckNotification{
+		Name:              certificate.Hostname,
 		IsValid:           certificate.IsValid,
 		ExpirationWarning: certificate.ExpirationWarning,
 		Messages:          certificate.ValidationIssues,

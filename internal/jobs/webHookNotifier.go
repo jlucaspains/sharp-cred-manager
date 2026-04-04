@@ -2,7 +2,6 @@ package jobs
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -25,13 +24,13 @@ type WebHookNotificationCard struct {
 	Title           string
 	Description     string
 	NotificationUrl string
-	Items           []CertCheckNotification
+	Items           []CheckNotification
 	Mentions        []string
 }
 
 func (m *WebHookNotifier) Init(notifierType NotifierType, webhookUrl string, notificationTitle string, notificationBody string, notificationUrl string, messageMentions string) {
 	if notificationTitle == "" {
-		notificationTitle = "Sharp Cert Manager Summary"
+		notificationTitle = "Sharp Cred Manager Summary"
 	}
 
 	if notificationBody == "" {
@@ -54,7 +53,7 @@ func parseMentions(mentions string) []string {
 	return strings.Split(mentions, ",")
 }
 
-func (m *WebHookNotifier) Notify(result []CertCheckNotification) error {
+func (m *WebHookNotifier) Notify(result []CheckNotification) error {
 	client := m.getClient()
 	parsedTemplate := m.getTemplate()
 	card := WebHookNotificationCard{
@@ -84,7 +83,7 @@ func (m *WebHookNotifier) Notify(result []CertCheckNotification) error {
 	defer response.Body.Close()
 
 	if response.StatusCode != 200 {
-		return errors.New("error sending notification to Teams")
+		return fmt.Errorf("error sending notification to %s. Error %s", m.NotifierType, response.Status)
 	}
 
 	return nil
@@ -95,6 +94,9 @@ func (m *WebHookNotifier) getTemplate() *template.Template {
 		m.parsedTemplate, _ = template.New("template").Funcs(template.FuncMap{
 			"split": func(s, sep string) []string {
 				return strings.Split(s, sep)
+			},
+			"replace": func(input, from, to string) string {
+				return strings.ReplaceAll(input, from, to)
 			},
 		}).Parse(NotificationTemplates[m.NotifierType])
 	}

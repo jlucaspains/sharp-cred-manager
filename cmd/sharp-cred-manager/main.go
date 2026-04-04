@@ -67,7 +67,7 @@ func runCheck(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("\033[31mWarning threshold must be a non-negative integer\033[0m")
 	}
 
-	logger.Debug("Starting Sharp Cert Manager...", "urls", urls, "validityDaysWarning", validityDaysWarning)
+	logger.Debug("Starting Sharp Cred Manager...", "urls", urls, "validityDaysWarning", validityDaysWarning)
 
 	t := table.NewWriter()
 	t.AppendHeader(table.Row{"Domain", "Common Name", "Status", "Details"})
