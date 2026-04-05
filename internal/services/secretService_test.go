@@ -178,8 +178,16 @@ func TestGetConfigSecrets_VaultOnly(t *testing.T) {
 	t.Setenv("AZUREKEYVAULTSECRET_1", "https://testfake.vault.azure.net")
 
 	id := azsecrets.ID("https://testfake.vault.azure.net/secrets/vault-secret/someversion")
+	enabled := true
+	expiresAt := time.Now().UTC().Add(90 * 24 * time.Hour)
 	mockSecretListResult = []*azsecrets.SecretProperties{
-		{ID: &id},
+		{
+			ID: &id,
+			Attributes: &azsecrets.SecretAttributes{
+				Enabled: &enabled,
+				Expires: &expiresAt,
+			},
+		},
 	}
 	defer func() { mockSecretListResult = nil }()
 
@@ -190,4 +198,78 @@ func TestGetConfigSecrets_VaultOnly(t *testing.T) {
 	assert.Equal(t, "https://testfake.vault.azure.net/secrets/vault-secret", secrets[0].Url)
 	assert.Equal(t, models.SecretCheckAzure, secrets[0].Type)
 	assert.Equal(t, "vault-secret", secrets[0].SecretName)
+}
+
+func TestGetConfigSecrets_VaultOnly_SecretWithoutExpiryExcludedByDefault(t *testing.T) {
+	t.Setenv("AZUREKEYVAULTSECRET_1", "https://testfake.vault.azure.net")
+
+	id := azsecrets.ID("https://testfake.vault.azure.net/secrets/vault-secret/someversion")
+	mockSecretListResult = []*azsecrets.SecretProperties{
+		{ID: &id},
+	}
+	defer func() { mockSecretListResult = nil }()
+
+	secrets := GetConfigSecrets()
+
+	assert.Len(t, secrets, 0)
+}
+
+func TestGetConfigSecrets_VaultOnly_SecretWithoutExpiryIncludedWhenConfigured(t *testing.T) {
+	t.Setenv("AZUREKEYVAULTSECRET_1", "https://testfake.vault.azure.net")
+	t.Setenv("SECRET_CHECK_REQUIRE_EXPIRE_DATE", "false")
+
+	id := azsecrets.ID("https://testfake.vault.azure.net/secrets/vault-secret/someversion")
+	mockSecretListResult = []*azsecrets.SecretProperties{
+		{ID: &id},
+	}
+	defer func() { mockSecretListResult = nil }()
+
+	secrets := GetConfigSecrets()
+
+	assert.Len(t, secrets, 1)
+}
+
+func TestGetConfigSecrets_VaultOnly_DisabledSecretExcludedByDefault(t *testing.T) {
+	t.Setenv("AZUREKEYVAULTSECRET_1", "https://testfake.vault.azure.net")
+
+	id := azsecrets.ID("https://testfake.vault.azure.net/secrets/vault-secret/someversion")
+	enabled := false
+	expiresAt := time.Now().UTC().Add(90 * 24 * time.Hour)
+	mockSecretListResult = []*azsecrets.SecretProperties{
+		{
+			ID: &id,
+			Attributes: &azsecrets.SecretAttributes{
+				Enabled: &enabled,
+				Expires: &expiresAt,
+			},
+		},
+	}
+	defer func() { mockSecretListResult = nil }()
+
+	secrets := GetConfigSecrets()
+
+	assert.Len(t, secrets, 0)
+}
+
+func TestGetConfigSecrets_VaultOnly_DisabledSecretIncludedWhenConfigured(t *testing.T) {
+	t.Setenv("AZUREKEYVAULTSECRET_1", "https://testfake.vault.azure.net")
+	t.Setenv("SECRET_CHECK_INCLUDE_DISABLED", "true")
+
+	id := azsecrets.ID("https://testfake.vault.azure.net/secrets/vault-secret/someversion")
+	enabled := false
+	expiresAt := time.Now().UTC().Add(90 * 24 * time.Hour)
+	mockSecretListResult = []*azsecrets.SecretProperties{
+		{
+			ID: &id,
+			Attributes: &azsecrets.SecretAttributes{
+				Enabled: &enabled,
+				Expires: &expiresAt,
+			},
+		},
+	}
+	defer func() { mockSecretListResult = nil }()
+
+	secrets := GetConfigSecrets()
+
+	assert.Len(t, secrets, 1)
 }
