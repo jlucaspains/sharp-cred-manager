@@ -1,9 +1,9 @@
 # sharp-cred-manager
-This project aims to provide a simple tool to monitor certificate validity. It is entirely built using [GO](https://go.dev/).
+This project aims to provide a simple tool to monitor TLS certificate and Azure Key Vault secret validity. It is entirely built using [GO](https://go.dev/).
 
 ![Demo frontend image](/docs/demo.jpeg)
 
-Additionally, the app can be configured to run a job at a given schedule. The job will check the configured websites and send a message to a Webhook with a summary of the websites and their certificate validity.
+Additionally, the app can be configured to run jobs at a given schedule. The jobs will check the configured websites and secrets and send a message to a Webhook with a summary of their validity.
 
 Teams message:
 
@@ -12,6 +12,9 @@ Teams message:
 Slack message:
 
 ![Demo slack message](/docs/SlackDemo.jpg)
+
+## Breaking Change
+> ⚠️ `AZUREKEYVAULT_N` has been renamed to `AZUREKEYVAULTCERT_N`. Please update your configuration accordingly.
 
 # Getting started
 ### Running webserver via Docker
@@ -23,6 +26,8 @@ The easiest way to get started is to run the Docker image published to [Docker H
 docker run -it -p 8000:8000 \
     --env ENV=DEV \
     --env SITE_1=https://expired.badssl.com/ \
+    --env AZUREKEYVAULTCERT_1=https://mykeyvault.vault.azure.net/certificates/my-cert \
+    --env AZUREKEYVAULTSECRET_1=https://mykeyvault.vault.azure.net/secrets/my-secret \
     jlucaspains/sharp-cred-manager
 ```
 
@@ -81,7 +86,7 @@ az container create \
     --image jlucaspains/sharp-cred-manager \
     --dns-name-label sharp-cred-manager \
     --ports 8000 \
-    --environment-variables ENV=DEV SITE_1=https://expired.badssl.com/
+    --environment-variables ENV=DEV SITE_1=https://expired.badssl.com/ AZUREKEYVAULTCERT_1=https://mykeyvault.vault.azure.net/certificates/my-cert AZUREKEYVAULTSECRET_1=https://mykeyvault.vault.azure.net/secrets/my-secret
 ```
 
 ### Azure Container App
@@ -108,14 +113,14 @@ az containerapp create \
     --image jlucaspains/sharp-cred-manager \
     --environment ace-sharpcredmanager-001 \
     --ingress external --target-port 8000 \
-    --env-vars ENV=DEV SITE_1=https://expired.badssl.com/ \
+    --env-vars ENV=DEV SITE_1=https://expired.badssl.com/ AZUREKEYVAULTCERT_1=https://mykeyvault.vault.azure.net/certificates/my-cert AZUREKEYVAULTSECRET_1=https://mykeyvault.vault.azure.net/secrets/my-secret \
     --query properties.configuration.ingress.fqdn
 ```
 
 ## Jobs and Webhook Notifications
-The app can be configured to run a job at a given schedule. The job will check the configured websites and send a message to a Webhook with a summary of the websites and their certificate validity. Currently, Teams and Slack are supported.
+The app can be configured to run jobs at a given schedule. The jobs will check the configured websites/secrets and send a message to a Webhook. Currently, Teams and Slack are supported.
 
-Adjust the `CHECK_CERT_JOB_SCHEDULE` cron to run at the desired schedule.
+Adjust the `CHECK_CERT_JOB_SCHEDULE` cron to run certificate checks at the desired schedule, and `CHECK_SECRET_JOB_SCHEDULE` for secret checks.
 
 The `WEBHOOK_URL` is the URL of the Teams/Slack Webhook to send the message to. Generate a webhook URL for Teams following [this guide](https://docs.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook#add-an-incoming-webhook-to-a-teams-channel) and for Slack following [this guide](https://api.slack.com/messaging/webhooks).
 
@@ -124,18 +129,39 @@ docker run -it -p 8000:8000 `
     --env ENV=DEV `
     --env SITE_1=https://expired.badssl.com/ `
     --env CHECK_CERT_JOB_SCHEDULE=* * * * * `
+    --env CHECK_SECRET_JOB_SCHEDULE=* * * * * `
     --env WEBHOOK_URL=ReplaceWithWebhookUrl `
     --env WEBHOOK_TYPE=teams `
     jlucaspains/sharp-cred-manager
 ```
+
+## Secret Monitoring
+The app can monitor **Azure Key Vault secrets** — checking their expiration date and enabled/active status — alongside TLS certificates. The dashboard shows a **Secrets tab** (alongside the existing Certificates tab) where each secret card displays its name, enabled status, and days until expiry.
+
+### Configuring secrets
+Set one or more `AZUREKEYVAULTSECRET_N` environment variables (where N starts at 1) to the URL of the secret to monitor:
+
+- **Specific secret**: `https://mykeyvault.vault.azure.net/secrets/my-secret` — monitors only that secret.
+- **Vault-only URL**: `https://mykeyvault.vault.azure.net` — lists and monitors **all** secrets in the vault.
+
+When using a vault-only URL, the following filters apply:
+- `SECRET_CHECK_INCLUDE_DISABLED` (default: `false`) — set to `true` to include disabled secrets.
+- `SECRET_CHECK_REQUIRE_EXPIRE_DATE` (default: `true`) — set to `false` to also monitor secrets without an expiration date.
+
+A secret is considered **valid** when:
+1. Its `enabled` attribute is `true`.
+2. Its expiration date (if set) has not passed.
+3. Its expiration date is not within `SECRET_WARNING_VALIDITY_DAYS` days (warning state).
 
 ## All environment options
 | Environment variable              | Description                                                                     | Default value                                 |
 |-----------------------------------|---------------------------------------------------------------------------------|-----------------------------------------------|
 | ENV                               | Environment name. Used to configure the app to run in different environments.   |                                               |
 | SITE_1..SITE_N                    | Websites to monitor.                                                            |                                               |
-| AZUREKEYVAULT_1..AZUREKEYVAULT_N  | Azure key vault certificates URLs to monitor.                                   |                                               |
+| AZUREKEYVAULTCERT_1..N            | Azure Key Vault certificate URLs to monitor. Replaces the old `AZUREKEYVAULT_N`.  |                                               |
+| AZUREKEYVAULTSECRET_1..N          | Azure Key Vault secret URLs to monitor. Use a vault-only URL to monitor all secrets in a vault. |                                 |
 | CHECK_CERT_JOB_SCHEDULE           | Cron schedule to run the job that checks the certificates.                      |                                               |
+| CHECK_SECRET_JOB_SCHEDULE         | Cron schedule to run the job that checks Key Vault secrets.                     |                                               |
 | WEBHOOK_URL                       | Webhook URL to send the message to.                                             |                                               |
 | MESSAGE_URL                       | URL to be used message action                                                   |                                               |
 | MESSAGE_TITLE                     | Message  title                                                                  | Sharp Cert Manager Summary                    |
@@ -145,7 +171,10 @@ docker run -it -p 8000:8000 `
 | TLS_CERT_FILE                     | Certificate used for TLS hosting                                                |                                               |
 | TLS_CERT_KEY_FILE                 | Certificate key used for TLS hosting                                            |                                               |
 | CERT_WARNING_VALIDITY_DAYS        | Defines how many days from today a cert need to have to prevent a warning       | 30                                            |
-| CHECK_CRED_JOB_NOTIFICATION_LEVEL | Defines minimum notification level for jobs. Values are Info, Warning, or Error | Warning                                       |
+| SECRET_WARNING_VALIDITY_DAYS      | Defines how many days from today a secret needs to have before a warning is raised | 30                                         |
+| SECRET_CHECK_INCLUDE_DISABLED     | When using a vault-only URL, include disabled secrets in monitoring             | false                                         |
+| SECRET_CHECK_REQUIRE_EXPIRE_DATE  | When using a vault-only URL, only monitor secrets that have an expiration date  | true                                          |
+| CHECK_CRED_JOB_NOTIFICATION_LEVEL | Defines minimum notification level for jobs (cert and secret). Values are Info, Warning, or Error | Warning              |
 | HEADLESS                          | If set to "true", the web server does not start.                                |                                               |
 
 ## Security considerations
@@ -161,7 +190,8 @@ Below features are currentl being evaluated and/or built. If you have a suggesti
 - [x] Monitor certificate in background
 - [x] Teams WebHook integration
 - [x] Slack WebHook integration
-- [x] Azure Key Vault integration
+- [x] Azure Key Vault certificate integration
+- [x] Azure Key Vault secret monitoring
 
 ## Headless Mode
 The `HEADLESS` environment variable is used to determine if the web server should start. If `HEADLESS` is set to "true", the web server does not start. This can be useful for running the job task only once and exiting with a success code.
