@@ -142,7 +142,7 @@ func prepareResult(certificate *x509.Certificate, peerCertificates []*x509.Certi
 	}
 }
 
-func getValidityInDays(startDate time.Time, endDate time.Time) int {
+func getValidityInDays(startDate, endDate time.Time) int {
 	if startDate.IsZero() || endDate.IsZero() {
 		return 0
 	}
