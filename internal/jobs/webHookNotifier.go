@@ -34,7 +34,7 @@ func (m *WebHookNotifier) Init(notifierType NotifierType, webhookUrl string, not
 	}
 
 	if notificationBody == "" {
-		notificationBody = fmt.Sprintf("The following certificates were checked on %s", time.Now().Format("01/02/2006"))
+		notificationBody = fmt.Sprintf("The following credentials were checked on %s", time.Now().Format("01/02/2006"))
 	}
 
 	m.NotifierType = notifierType

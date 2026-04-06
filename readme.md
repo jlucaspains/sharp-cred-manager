@@ -165,7 +165,7 @@ A secret is considered **valid** when:
 | WEBHOOK_URL                       | Webhook URL to send the message to.                                             |                                               |
 | MESSAGE_URL                       | URL to be used message action                                                   |                                               |
 | MESSAGE_TITLE                     | Message  title                                                                  | Sharp Cert Manager Summary                    |
-| MESSAGE_BODY                      | Message body body                                                               | The following certificates were checked on %s |
+| MESSAGE_BODY                      | Message body body                                                               | The following credentials were checked on %s |
 | WEB_HOST_PORT                     | Host and port the web server will listen on                                     | :8000                                         |
 | WEBHOOK_TYPE                      | Defines whether teams or slack webhooks are used                                | teams                                         |
 | TLS_CERT_FILE                     | Certificate used for TLS hosting                                                |                                               |

@@ -69,10 +69,10 @@ func TestWebHookNotifierImplicitInit(t *testing.T) {
 	})
 
 	WebHookNotifier := &WebHookNotifier{}
-	WebHookNotifier.Init(Teams, ts.URL, "", "The following certificates were checked on today", "", "")
+	WebHookNotifier.Init(Teams, ts.URL, "", "The following credentials were checked on today", "", "")
 	err := WebHookNotifier.Notify([]CheckNotification{})
 	assert.Nil(t, err)
-	assert.Equal(t, "{\n\t\"type\": \"message\",\n\t\"attachments\": [{\n\t\t\"contentType\": \"application/vnd.microsoft.card.adaptive\",\n\t\t\"content\": {\n\t\t\t\"type\": \"AdaptiveCard\",\n\t\t\t\"version\": \"1.5\",\n\t\t\t\"$schema\": \"http://adaptivecards.io/schemas/adaptive-card.json\",\n\t\t\t\"body\": [\n\t\t\t\t{\n\t\t\t\t\t\"type\": \"TextBlock\",\n\t\t\t\t\t\"text\": \"Sharp Cred Manager Summary\",\n\t\t\t\t\t\"size\": \"large\",\n\t\t\t\t\t\"weight\": \"bolder\",\n\t\t\t\t\t\"wrap\": true\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\t\"type\": \"TextBlock\",\n\t\t\t\t\t\"text\": \"The following certificates were checked on today\",\n\t\t\t\t\t\"isSubtle\": true,\n\t\t\t\t\t\"wrap\": true\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\t\"type\": \"Table\",\n\t\t\t\t\t\"columns\": [\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\"width\": 2\n\t\t\t\t\t\t},\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\"width\": 4\n\t\t\t\t\t\t}\n\t\t\t\t\t],\n\t\t\t\t\t\"rows\": [\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\"type\": \"TableRow\",\n\t\t\t\t\t\t\t\"cells\": [\n\t\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\t\"type\": \"TableCell\",\n\t\t\t\t\t\t\t\t\t\"items\": [\n\t\t\t\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\t\t\"type\": \"TextBlock\",\n\t\t\t\t\t\t\t\t\t\t\"text\": \"No items to display\"\n\t\t\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\t\t]\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t]\n\t\t\t\t\t\t}\n\t\t\t\t\t]\n\t\t\t\t}\n\t\t\t]\n\t\t}\n\t}]\n}", result)
+	assert.Equal(t, "{\n\t\"type\": \"message\",\n\t\"attachments\": [{\n\t\t\"contentType\": \"application/vnd.microsoft.card.adaptive\",\n\t\t\"content\": {\n\t\t\t\"type\": \"AdaptiveCard\",\n\t\t\t\"version\": \"1.5\",\n\t\t\t\"$schema\": \"http://adaptivecards.io/schemas/adaptive-card.json\",\n\t\t\t\"body\": [\n\t\t\t\t{\n\t\t\t\t\t\"type\": \"TextBlock\",\n\t\t\t\t\t\"text\": \"Sharp Cred Manager Summary\",\n\t\t\t\t\t\"size\": \"large\",\n\t\t\t\t\t\"weight\": \"bolder\",\n\t\t\t\t\t\"wrap\": true\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\t\"type\": \"TextBlock\",\n\t\t\t\t\t\"text\": \"The following credentials were checked on today\",\n\t\t\t\t\t\"isSubtle\": true,\n\t\t\t\t\t\"wrap\": true\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\t\"type\": \"Table\",\n\t\t\t\t\t\"columns\": [\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\"width\": 2\n\t\t\t\t\t\t},\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\"width\": 4\n\t\t\t\t\t\t}\n\t\t\t\t\t],\n\t\t\t\t\t\"rows\": [\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\"type\": \"TableRow\",\n\t\t\t\t\t\t\t\"cells\": [\n\t\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\t\"type\": \"TableCell\",\n\t\t\t\t\t\t\t\t\t\"items\": [\n\t\t\t\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\t\t\"type\": \"TextBlock\",\n\t\t\t\t\t\t\t\t\t\t\"text\": \"No items to display\"\n\t\t\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\t\t]\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t]\n\t\t\t\t\t\t}\n\t\t\t\t\t]\n\t\t\t\t}\n\t\t\t]\n\t\t}\n\t}]\n}", result)
 }
 
 func TestTeamsWebHookNotifierWithData(t *testing.T) {
@@ -91,12 +91,12 @@ func TestTeamsWebHookNotifierWithData(t *testing.T) {
 	})
 
 	WebHookNotifier := &WebHookNotifier{}
-	WebHookNotifier.Init(Teams, ts.URL, "", "The following certificates were checked on today", "", "")
+	WebHookNotifier.Init(Teams, ts.URL, "", "The following credentials were checked on today", "", "")
 	err := WebHookNotifier.Notify([]CheckNotification{
 		{Name: "host1", IsValid: true},
 	})
 	assert.Nil(t, err)
-	assert.Equal(t, "{\n\t\"type\": \"message\",\n\t\"attachments\": [{\n\t\t\"contentType\": \"application/vnd.microsoft.card.adaptive\",\n\t\t\"content\": {\n\t\t\t\"type\": \"AdaptiveCard\",\n\t\t\t\"version\": \"1.5\",\n\t\t\t\"$schema\": \"http://adaptivecards.io/schemas/adaptive-card.json\",\n\t\t\t\"body\": [\n\t\t\t\t{\n\t\t\t\t\t\"type\": \"TextBlock\",\n\t\t\t\t\t\"text\": \"Sharp Cred Manager Summary\",\n\t\t\t\t\t\"size\": \"large\",\n\t\t\t\t\t\"weight\": \"bolder\",\n\t\t\t\t\t\"wrap\": true\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\t\"type\": \"TextBlock\",\n\t\t\t\t\t\"text\": \"The following certificates were checked on today\",\n\t\t\t\t\t\"isSubtle\": true,\n\t\t\t\t\t\"wrap\": true\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\t\"type\": \"Table\",\n\t\t\t\t\t\"columns\": [\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\"width\": 2\n\t\t\t\t\t\t},\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\"width\": 4\n\t\t\t\t\t\t}\n\t\t\t\t\t],\n\t\t\t\t\t\"rows\": [\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\"type\": \"TableRow\",\n\t\t\t\t\t\t\t\"cells\": [\n\t\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\t\"type\": \"TableCell\",\n\t\t\t\t\t\t\t\t\t\"items\": [\n\t\t\t\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\t\t\"type\": \"TextBlock\",\n\t\t\t\t\t\t\t\t\t\t\"text\": \"✔️host1\"\n\t\t\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\t\t]\n\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\t\"type\": \"TableCell\",\n\t\t\t\t\t\t\t\t\t\"items\": [\n\t\t\t\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\t\t\"type\": \"TextBlock\",\n\t\t\t\t\t\t\t\t\t\t\"text\": \"\",\n\t\t\t\t\t\t\t\t\t\t\"wrap\": true\n\t\t\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\t\t]\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t]\n\t\t\t\t\t\t}\n\t\t\t\t\t]\n\t\t\t\t}\n\t\t\t]\n\t\t}\n\t}]\n}", result)
+	assert.Equal(t, "{\n\t\"type\": \"message\",\n\t\"attachments\": [{\n\t\t\"contentType\": \"application/vnd.microsoft.card.adaptive\",\n\t\t\"content\": {\n\t\t\t\"type\": \"AdaptiveCard\",\n\t\t\t\"version\": \"1.5\",\n\t\t\t\"$schema\": \"http://adaptivecards.io/schemas/adaptive-card.json\",\n\t\t\t\"body\": [\n\t\t\t\t{\n\t\t\t\t\t\"type\": \"TextBlock\",\n\t\t\t\t\t\"text\": \"Sharp Cred Manager Summary\",\n\t\t\t\t\t\"size\": \"large\",\n\t\t\t\t\t\"weight\": \"bolder\",\n\t\t\t\t\t\"wrap\": true\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\t\"type\": \"TextBlock\",\n\t\t\t\t\t\"text\": \"The following credentials were checked on today\",\n\t\t\t\t\t\"isSubtle\": true,\n\t\t\t\t\t\"wrap\": true\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\t\"type\": \"Table\",\n\t\t\t\t\t\"columns\": [\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\"width\": 2\n\t\t\t\t\t\t},\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\"width\": 4\n\t\t\t\t\t\t}\n\t\t\t\t\t],\n\t\t\t\t\t\"rows\": [\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\"type\": \"TableRow\",\n\t\t\t\t\t\t\t\"cells\": [\n\t\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\t\"type\": \"TableCell\",\n\t\t\t\t\t\t\t\t\t\"items\": [\n\t\t\t\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\t\t\"type\": \"TextBlock\",\n\t\t\t\t\t\t\t\t\t\t\"text\": \"✔️host1\"\n\t\t\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\t\t]\n\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\t\"type\": \"TableCell\",\n\t\t\t\t\t\t\t\t\t\"items\": [\n\t\t\t\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\t\t\"type\": \"TextBlock\",\n\t\t\t\t\t\t\t\t\t\t\"text\": \"\",\n\t\t\t\t\t\t\t\t\t\t\"wrap\": true\n\t\t\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\t\t]\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t]\n\t\t\t\t\t\t}\n\t\t\t\t\t]\n\t\t\t\t}\n\t\t\t]\n\t\t}\n\t}]\n}", result)
 }
 
 func TestSlackWebHookNotifierWithData(t *testing.T) {
@@ -115,12 +115,12 @@ func TestSlackWebHookNotifierWithData(t *testing.T) {
 	})
 
 	WebHookNotifier := &WebHookNotifier{}
-	WebHookNotifier.Init(Slack, ts.URL, "", "The following certificates were checked on today", "", "")
+	WebHookNotifier.Init(Slack, ts.URL, "", "The following credentials were checked on today", "", "")
 	err := WebHookNotifier.Notify([]CheckNotification{
 		{Name: "host1", IsValid: true},
 	})
 	assert.Nil(t, err)
-	assert.Equal(t, "{\n\t\"blocks\": [\n\t\t{\n\t\t\t\"type\": \"section\",\n\t\t\t\"text\": {\n\t\t\t\t\"type\": \"mrkdwn\",\n\t\t\t\t\"text\": \"Sharp Cred Manager Summary\\nThe following certificates were checked on today\"\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"type\": \"divider\"\n\t\t},\n\t\t{\n\t\t\t\"type\": \"section\",\n\t\t\t\"text\": {\n\t\t\t\t\"type\": \"mrkdwn\",\n\t\t\t\t\"text\": \":white_check_mark:\\t*host1*\\n\"\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"type\": \"divider\"\n\t\t},\n\t]\n}", result)
+	assert.Equal(t, "{\n\t\"blocks\": [\n\t\t{\n\t\t\t\"type\": \"section\",\n\t\t\t\"text\": {\n\t\t\t\t\"type\": \"mrkdwn\",\n\t\t\t\t\"text\": \"Sharp Cred Manager Summary\\nThe following credentials were checked on today\"\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"type\": \"divider\"\n\t\t},\n\t\t{\n\t\t\t\"type\": \"section\",\n\t\t\t\"text\": {\n\t\t\t\t\"type\": \"mrkdwn\",\n\t\t\t\t\"text\": \":white_check_mark:\\t*host1*\\n\"\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"type\": \"divider\"\n\t\t},\n\t]\n}", result)
 }
 
 func TestSlackWebHookNotifierWithNotificationUrl(t *testing.T) {
@@ -139,12 +139,12 @@ func TestSlackWebHookNotifierWithNotificationUrl(t *testing.T) {
 	})
 
 	WebHookNotifier := &WebHookNotifier{}
-	WebHookNotifier.Init(Slack, ts.URL, "", "The following certificates were checked on today", "https://example.com", "")
+	WebHookNotifier.Init(Slack, ts.URL, "", "The following credentials were checked on today", "https://example.com", "")
 	err := WebHookNotifier.Notify([]CheckNotification{
 		{Name: "host1", IsValid: true},
 	})
 	assert.Nil(t, err)
-	assert.Equal(t, "{\n\t\"blocks\": [\n\t\t{\n\t\t\t\"type\": \"section\",\n\t\t\t\"text\": {\n\t\t\t\t\"type\": \"mrkdwn\",\n\t\t\t\t\"text\": \"Sharp Cred Manager Summary\\nThe following certificates were checked on today\"\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"type\": \"divider\"\n\t\t},\n\t\t{\n\t\t\t\"type\": \"section\",\n\t\t\t\"text\": {\n\t\t\t\t\"type\": \"mrkdwn\",\n\t\t\t\t\"text\": \":white_check_mark:\\t*host1*\\n\"\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"type\": \"divider\"\n\t\t},\n\t\t{\n\t\t\t\"type\": \"actions\",\n\t\t\t\"elements\": [\n\t\t\t\t{\n\t\t\t\t\t\"type\": \"button\",\n\t\t\t\t\t\"text\": {\n\t\t\t\t\t\t\"type\": \"plain_text\",\n\t\t\t\t\t\t\"text\": \"View details\",\n\t\t\t\t\t\t\"emoji\": true\n\t\t\t\t\t},\n\t\t\t\t\t\"value\": \"click_me_123\",\n\t\t\t\t\t\"url\": \"https://example.com\"\n\t\t\t\t}\n\t\t\t]\n\t\t}\n\t]\n}", result)
+	assert.Equal(t, "{\n\t\"blocks\": [\n\t\t{\n\t\t\t\"type\": \"section\",\n\t\t\t\"text\": {\n\t\t\t\t\"type\": \"mrkdwn\",\n\t\t\t\t\"text\": \"Sharp Cred Manager Summary\\nThe following credentials were checked on today\"\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"type\": \"divider\"\n\t\t},\n\t\t{\n\t\t\t\"type\": \"section\",\n\t\t\t\"text\": {\n\t\t\t\t\"type\": \"mrkdwn\",\n\t\t\t\t\"text\": \":white_check_mark:\\t*host1*\\n\"\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"type\": \"divider\"\n\t\t},\n\t\t{\n\t\t\t\"type\": \"actions\",\n\t\t\t\"elements\": [\n\t\t\t\t{\n\t\t\t\t\t\"type\": \"button\",\n\t\t\t\t\t\"text\": {\n\t\t\t\t\t\t\"type\": \"plain_text\",\n\t\t\t\t\t\t\"text\": \"View details\",\n\t\t\t\t\t\t\"emoji\": true\n\t\t\t\t\t},\n\t\t\t\t\t\"value\": \"click_me_123\",\n\t\t\t\t\t\"url\": \"https://example.com\"\n\t\t\t\t}\n\t\t\t]\n\t\t}\n\t]\n}", result)
 }
 
 func TestWebHookNotifierBadResponseCode(t *testing.T) {
