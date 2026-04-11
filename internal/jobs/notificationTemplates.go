@@ -121,7 +121,7 @@ const teamsMessageTemplate = `{
 {
 "type": "TextBlock",
 "text": "{{if not $item.IsValid}}❌{{else if $item.ExpirationWarning}}⚠️{{else}}✔️{{end}} {{$item.Name}}",
-					"wrap": true
+"wrap": true
 }
 ]
 },
