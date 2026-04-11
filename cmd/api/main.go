@@ -17,8 +17,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var checkCertJob = &jobs.CheckCertJob{}
-var checkSecretJob = &jobs.CheckSecretJob{}
+var checkCredJob = &jobs.CheckCredJob{}
 var env string
 
 func loadEnv() {
@@ -46,16 +45,15 @@ func getJobNotifier() jobs.Notifier {
 	return result
 }
 
-func startJobs(siteList []models.CheckCertItem) {
-	schedule, ok := os.LookupEnv("CHECK_CERT_JOB_SCHEDULE")
+func startJobs(certList []models.CheckCertItem, secretList []models.CheckSecretItem) {
+	schedule, ok := os.LookupEnv("CHECK_CRED_JOB_SCHEDULE")
 
 	if ok {
 		log.Printf("Starting job engine with cron: %s", schedule)
 		level, _ := os.LookupEnv("CHECK_CRED_JOB_NOTIFICATION_LEVEL")
-		warningDays := getCertExpirationWarningDays()
-		err := checkCertJob.Init(schedule, level, warningDays, siteList, getJobNotifier())
+		err := checkCredJob.Init(schedule, level, getCertExpirationWarningDays(), getSecretWarningValidityDays(), certList, secretList, getJobNotifier())
 		if err == nil {
-			checkCertJob.Start()
+			checkCredJob.Start()
 			log.Print("Job engine started")
 		} else {
 			log.Printf("Error starting job: %s", err)
@@ -96,28 +94,8 @@ func getCORSOrigins() string {
 	return ""
 }
 
-func startSecretJobs(secretList []models.CheckSecretItem) {
-	schedule, ok := os.LookupEnv("CHECK_SECRET_JOB_SCHEDULE")
-
-	if ok {
-		log.Printf("Starting secret job engine with cron: %s", schedule)
-		level, _ := os.LookupEnv("CHECK_CRED_JOB_NOTIFICATION_LEVEL")
-		warningDays := getSecretWarningValidityDays()
-		err := checkSecretJob.Init(schedule, level, warningDays, secretList, getJobNotifier())
-		if err == nil {
-			checkSecretJob.Start()
-			log.Print("Secret job engine started")
-		} else {
-			log.Printf("Error starting secret job: %s", err)
-		}
-	} else {
-		log.Println("No schedule defined for secret jobs")
-	}
-}
-
 func stopJobs() {
-	checkCertJob.Stop()
-	checkSecretJob.Stop()
+	checkCredJob.Stop()
 }
 
 func startWebServer(siteList []models.CheckCertItem, secretList []models.CheckSecretItem) {
@@ -192,29 +170,20 @@ func startWebServer(siteList []models.CheckCertItem, secretList []models.CheckSe
 }
 
 func runOnce(siteList []models.CheckCertItem, secretList []models.CheckSecretItem, done chan os.Signal) {
-	certSchedule, _ := os.LookupEnv("CHECK_CERT_JOB_SCHEDULE")
-	secretSchedule, _ := os.LookupEnv("CHECK_SECRET_JOB_SCHEDULE")
+	schedule, _ := os.LookupEnv("CHECK_CRED_JOB_SCHEDULE")
 	headless, _ := os.LookupEnv("HEADLESS")
 
-	if certSchedule != "" || secretSchedule != "" || headless != "true" {
+	if schedule != "" || headless != "true" {
 		return
 	}
 
-	log.Print("Running the checkCertJob once")
+	log.Print("Running the checkCredJob once")
 	level, _ := os.LookupEnv("CHECK_CRED_JOB_NOTIFICATION_LEVEL")
-	warningDays := getCertExpirationWarningDays()
-	err := checkCertJob.Init("* * * * *", level, warningDays, siteList, getJobNotifier())
+	err := checkCredJob.Init("* * * * *", level, getCertExpirationWarningDays(), getSecretWarningValidityDays(), siteList, secretList, getJobNotifier())
 	if err == nil {
-		checkCertJob.RunNow()
+		checkCredJob.RunNow()
 	} else {
-		log.Fatalf("Error running the checkCertJob once: %s", err)
-	}
-
-	err = checkSecretJob.Init("* * * * *", level, warningDays, secretList, getJobNotifier())
-	if err == nil {
-		checkSecretJob.RunNow()
-	} else {
-		log.Fatalf("Error running the checkSecretJob once: %s", err)
+		log.Fatalf("Error running the checkCredJob once: %s", err)
 	}
 
 	// We don't want to wait on anything so do a graceful exist
@@ -231,8 +200,7 @@ func main() {
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	startWebServer(siteList, secretList)
-	startJobs(siteList)
-	startSecretJobs(secretList)
+	startJobs(siteList, secretList)
 	runOnce(siteList, secretList, done)
 
 	<-done

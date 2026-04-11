@@ -2,7 +2,7 @@ package jobs
 
 type EmptyNotifier struct{}
 
-func (m *EmptyNotifier) Notify(result []CheckNotification) error {
+func (m *EmptyNotifier) Notify(groups []CheckNotificationGroup) error {
 	return nil
 }
 

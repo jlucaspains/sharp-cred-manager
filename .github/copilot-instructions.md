@@ -77,11 +77,13 @@ for i := 1; true; i++ {
 }
 ```
 
-Key env vars: `SITE_1..N`, `AZUREKEYVAULTCERT_1..N`, `AZUREKEYVAULTSECRET_1..N`, `CHECK_CERT_JOB_SCHEDULE`, `CHECK_SECRET_JOB_SCHEDULE`, `WEBHOOK_URL`, `WEBHOOK_TYPE` (teams/slack), `WEB_HOST_PORT` (default `:8000`), `HEADLESS` (skip web server). For local dev, put these in a `.env` file — `godotenv` loads it automatically.
+Key env vars: `SITE_1..N`, `AZUREKEYVAULTCERT_1..N`, `AZUREKEYVAULTSECRET_1..N`, `CHECK_CRED_JOB_SCHEDULE`, `WEBHOOK_URL`, `WEBHOOK_TYPE` (teams/slack), `WEB_HOST_PORT` (default `:8000`), `HEADLESS` (skip web server). For local dev, put these in a `.env` file — `godotenv` loads it automatically.
 
 ### Background Jobs
 
-Jobs in `internal/jobs/` implement an `Init()` method and use `github.com/adhocore/gronx` for cron scheduling. The `Notifier` interface (`Notify()`, `IsReady()`) is used to decouple webhook dispatch from job logic. `emptyNotifier.go` is the no-op implementation used when no webhook is configured.
+Jobs in `internal/jobs/` implement an `Init()` method and use `github.com/adhocore/gronx` for cron scheduling. `CheckCredJob` (in `CheckCredJob.go`) monitors both certs and secrets in a single execution, building `[]CheckNotificationGroup` and calling `Notify` once. The `Notifier` interface (`Notify([]CheckNotificationGroup)`, `IsReady()`) decouples webhook dispatch from job logic. `emptyNotifier.go` is the no-op implementation used when no webhook is configured.
+
+`CheckNotificationGroup{Label, Items}` is the extensibility point for future credential types (e.g. AKV Keys): add a new group in `execute()` and the templates require no changes.
 
 ### Frontend Templates
 

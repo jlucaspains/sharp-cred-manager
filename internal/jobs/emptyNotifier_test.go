@@ -8,6 +8,6 @@ import (
 
 func TestEmptyNotifier(t *testing.T) {
 	emptyNotifier := &EmptyNotifier{}
-	err := emptyNotifier.Notify([]CheckNotification{})
+	err := emptyNotifier.Notify([]CheckNotificationGroup{})
 	assert.Nil(t, err)
 }

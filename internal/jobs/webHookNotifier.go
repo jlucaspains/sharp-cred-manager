@@ -24,7 +24,7 @@ type WebHookNotificationCard struct {
 	Title           string
 	Description     string
 	NotificationUrl string
-	Items           []CheckNotification
+	Groups          []CheckNotificationGroup
 	Mentions        []string
 }
 
@@ -53,14 +53,14 @@ func parseMentions(mentions string) []string {
 	return strings.Split(mentions, ",")
 }
 
-func (m *WebHookNotifier) Notify(result []CheckNotification) error {
+func (m *WebHookNotifier) Notify(groups []CheckNotificationGroup) error {
 	client := m.getClient()
 	parsedTemplate := m.getTemplate()
 	card := WebHookNotificationCard{
 		Title:           m.NotificationTitle,
 		Description:     m.NotificationBody,
 		NotificationUrl: m.NotificationUrl,
-		Items:           result,
+		Groups:          groups,
 		Mentions:        m.Mentions,
 	}
 
@@ -83,6 +83,11 @@ func (m *WebHookNotifier) Notify(result []CheckNotification) error {
 	defer response.Body.Close()
 
 	if response.StatusCode != 200 {
+		body := new(bytes.Buffer)
+		body.ReadFrom(response.Body)
+		if body.Len() > 0 {
+			return fmt.Errorf("error sending notification to %s. Error %s: %s", m.NotifierType, response.Status, body.String())
+		}
 		return fmt.Errorf("error sending notification to %s. Error %s", m.NotifierType, response.Status)
 	}
 

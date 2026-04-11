@@ -13,8 +13,29 @@ Slack message:
 
 ![Demo slack message](/docs/SlackDemo.jpg)
 
-## Breaking Change
-> ⚠️ `AZUREKEYVAULT_N` has been renamed to `AZUREKEYVAULTCERT_N`. Please update your configuration accordingly.
+## V2
+V2 is a new major version that introduces:
+1. **Azure Key Vault secret monitoring** — monitor secrets' expiration and enabled/active status alongside certificates
+3. **Secrets dashboard tab** — the web UI now has a Secrets tab alongside the existing Certificates tab
+4. **Breaking Change**: The app was renamed from Sharp Cert Manager to **Sharp Cred Manager** as it now monitors credentials beyond certificates
+
+### Migrate from v1.x to v2.x
+
+**Renamed/removed environment variables:**
+
+| v1 variable | v2 variable | Notes |
+|---|---|---|
+| `AZUREKEYVAULT_N` | `AZUREKEYVAULTCERT_N` | Renamed to distinguish certificate URLs from secret URLs |
+| `CHECK_CERT_JOB_SCHEDULE` | `CHECK_CRED_JOB_SCHEDULE` | Certs and secrets now run on a single shared schedule |
+
+**New optional environment variables:**
+
+| Variable | Description | Default |
+|---|---|---|
+| `AZUREKEYVAULTSECRET_1..N` | Azure Key Vault secret URLs to monitor. Use a vault-only URL to monitor all secrets in a vault. | |
+| `SECRET_WARNING_VALIDITY_DAYS` | Days before expiry to trigger a warning for secrets | 30 |
+| `SECRET_CHECK_INCLUDE_DISABLED` | When using a vault-only URL, include disabled secrets | false |
+| `SECRET_CHECK_REQUIRE_EXPIRE_DATE` | When using a vault-only URL, only monitor secrets that have an expiration date | true |
 
 # Getting started
 ### Running webserver via Docker
@@ -118,9 +139,9 @@ az containerapp create \
 ```
 
 ## Jobs and Webhook Notifications
-The app can be configured to run jobs at a given schedule. The jobs will check the configured websites/secrets and send a message to a Webhook. Currently, Teams and Slack are supported.
+The app can be configured to run jobs at a given schedule. The jobs will check all configured websites and secrets together and send a **single combined message** to a Webhook. Currently, Teams and Slack are supported.
 
-Adjust the `CHECK_CERT_JOB_SCHEDULE` cron to run certificate checks at the desired schedule, and `CHECK_SECRET_JOB_SCHEDULE` for secret checks.
+Set `CHECK_CRED_JOB_SCHEDULE` to a cron expression to run both certificate and secret checks on the same schedule.
 
 The `WEBHOOK_URL` is the URL of the Teams/Slack Webhook to send the message to. Generate a webhook URL for Teams following [this guide](https://docs.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook#add-an-incoming-webhook-to-a-teams-channel) and for Slack following [this guide](https://api.slack.com/messaging/webhooks).
 
@@ -128,8 +149,7 @@ The `WEBHOOK_URL` is the URL of the Teams/Slack Webhook to send the message to. 
 docker run -it -p 8000:8000 `
     --env ENV=DEV `
     --env SITE_1=https://expired.badssl.com/ `
-    --env CHECK_CERT_JOB_SCHEDULE=* * * * * `
-    --env CHECK_SECRET_JOB_SCHEDULE=* * * * * `
+    --env CHECK_CRED_JOB_SCHEDULE=* * * * * `
     --env WEBHOOK_URL=ReplaceWithWebhookUrl `
     --env WEBHOOK_TYPE=teams `
     jlucaspains/sharp-cred-manager
@@ -158,10 +178,9 @@ A secret is considered **valid** when:
 |-----------------------------------|---------------------------------------------------------------------------------|-----------------------------------------------|
 | ENV                               | Environment name. Used to configure the app to run in different environments.   |                                               |
 | SITE_1..SITE_N                    | Websites to monitor.                                                            |                                               |
-| AZUREKEYVAULTCERT_1..N            | Azure Key Vault certificate URLs to monitor. Replaces the old `AZUREKEYVAULT_N`.  |                                               |
+| AZUREKEYVAULTCERT_1..N            | Azure Key Vault certificate URLs to monitor.                                    |                                               |
 | AZUREKEYVAULTSECRET_1..N          | Azure Key Vault secret URLs to monitor. Use a vault-only URL to monitor all secrets in a vault. |                                 |
-| CHECK_CERT_JOB_SCHEDULE           | Cron schedule to run the job that checks the certificates.                      |                                               |
-| CHECK_SECRET_JOB_SCHEDULE         | Cron schedule to run the job that checks Key Vault secrets.                     |                                               |
+| CHECK_CRED_JOB_SCHEDULE           | Cron schedule to run the job that checks both certificates and secrets together. |                                               |
 | WEBHOOK_URL                       | Webhook URL to send the message to.                                             |                                               |
 | MESSAGE_URL                       | URL to be used message action                                                   |                                               |
 | MESSAGE_TITLE                     | Message  title                                                                  | Sharp Cert Manager Summary                    |
@@ -196,7 +215,7 @@ Below features are currentl being evaluated and/or built. If you have a suggesti
 ## Headless Mode
 The `HEADLESS` environment variable is used to determine if the web server should start. If `HEADLESS` is set to "true", the web server does not start. This can be useful for running the job task only once and exiting with a success code.
 
-To run the job task only once and exit with a success code, set `HEADLESS` to "true" and `CHECK_CERT_JOB_SCHEDULE` to an empty value.
+To run the job task only once and exit with a success code, set `HEADLESS` to "true" and leave `CHECK_CRED_JOB_SCHEDULE` unset.
 
 Example: Running as a container app job using az cli
 ```bash

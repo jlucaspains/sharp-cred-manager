@@ -9,7 +9,7 @@ The app currently monitors TLS certificates (from URLs and Azure Key Vault). We 
 - **Bulk vault**: If `AZUREKEYVAULTSECRET_N` has no secret name in path (just a vault URL), list and monitor **all** secrets in that vault
 - **Rotation**: Out of scope for this version
 - **UI**: Tabbed dashboard — existing certs grid on Tab 1, new secrets grid on Tab 2
-- **Job**: Create a new job to monitor secrets called `CheckSecretJob`. Follow example implementation from `CheckCertJob`. Create a new env variable called `CHECK_SECRET_JOB_SCHEDULE` to determine the schedule to run the secret job.
+- **Job**: Merge the cert and secret monitoring into a single `CheckCredJob`. Use a single env variable called `CHECK_CRED_JOB_SCHEDULE` to determine the schedule. Keep `CERT_WARNING_VALIDITY_DAYS` and `SECRET_WARNING_VALIDITY_DAYS` as separate thresholds.
 
 ## Architecture Overview
 
@@ -58,7 +58,7 @@ AZUREKEYVAULTSECRET_N env var
 - Create `frontend/secretItemModal.html` – modal detail view (Name, URL, Enabled, Expires, NotBefore, ValidationIssues)
 
 ### 4. Backend – Secret Service
-> Status: Not Started
+> Status: Complete
 
 - Add `github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets` to go.mod
 - Create `internal/services/secretService.go`:
@@ -68,7 +68,7 @@ AZUREKEYVAULTSECRET_N env var
 - Add unit tests in `internal/services/secretService_test.go`
 
 ### 5. Backend – API Handlers
-> Status: Not Started
+> Status: Complete
 
 - Add `SecretList []models.CheckSecretItem` to `Handlers` struct in `internal/handlers/handlers.go`
 - Create `internal/handlers/secretCheckHandlers.go`:
@@ -77,7 +77,7 @@ AZUREKEYVAULTSECRET_N env var
 - Add handler tests in `internal/handlers/secretCheckHandlers_test.go`
 
 ### 6. Backend – Wire Up in main.go
-> Status: Not Started
+> Status: Complete
 
 - In `cmd/api/main.go`:
   - Call `services.GetConfigSecrets()` on startup alongside `GetConfigCerts()`
@@ -85,7 +85,7 @@ AZUREKEYVAULTSECRET_N env var
   - Register routes: `GET /api/secret-list` and `GET /api/check-secret`
 
 ### 7. Frontend – Backend Routes for Secret Templates
-> Status: Not Started
+> Status: Complete
 
 - Add to `internal/handlers/frontend.go`:
   - `GET /secret-item?name=...` → renders `secretItemLoaded.html` (calls `CheckSecretStatus`)
@@ -93,17 +93,31 @@ AZUREKEYVAULTSECRET_N env var
 - Register routes in `cmd/api/main.go`
 
 ### 8. Backend – Job Integration
-> Status: Not Started
+> Status: Complete
 
-- Create `CheckSecretJob` in `internal/jobs/CheckSecretJob.go`
-  - Implement it similarly to `internal/jobs/CheckCertJob.go`
-  - Create a new model `SecretCheckNotification`
-  - Send notification using typical notifier.
-- Update `cmd/api/main.go` `startJobs()` to pass the secrets list
-- Update job tests in `internal/jobs/CheckCertJob_test.go`
+- Replaced `CheckCertJob` and `CheckSecretJob` with a single `CheckCredJob` in `internal/jobs/CheckCredJob.go`:
+  - `CheckCredJob` struct with `Init(schedule, level, certWarningDays, secretWarningDays, certList, secretList, notifier)`
+  - Checks certs and secrets in a single `execute()`, building grouped notifications (`CheckNotificationGroup`) before calling `Notify` once
+  - `CHECK_CRED_JOB_SCHEDULE` env var controls the single shared cron schedule
+  - `CERT_WARNING_VALIDITY_DAYS` and `SECRET_WARNING_VALIDITY_DAYS` remain separate thresholds
+- Added `CheckNotificationGroup{Label, Items}` to support extensible grouped notifications (future types like AKV Keys require no template changes)
+- Updated `Notifier` interface: `Notify(groups []CheckNotificationGroup)`
+- Updated `WebHookNotificationCard` to use `Groups []CheckNotificationGroup`; both Teams and Slack templates render a labeled section header per group
+- Updated `cmd/api/main.go`: single `startJobs(certList, secretList)` call; removed `startSecretJobs`
+- Added `CheckCredJob_test.go` consolidating all cert and secret job tests
 
 ### 9. Documentation
-> Status: Not Started
+> Status: Complete
 
-- Update `readme.md`: document new env var names, `AZUREKEYVAULTCERT_N`, `AZUREKEYVAULTSECRET_N`, breaking change note
-- Update examples with scenarios for certs and secrets
+- Update `readme.md`:
+  - **Breaking change note**: `AZUREKEYVAULT_N` renamed to `AZUREKEYVAULTCERT_N` in env vars table and all examples
+  - Add new env vars to the table:
+    - `AZUREKEYVAULTCERT_1..N` — replaces `AZUREKEYVAULT_N`; Azure Key Vault certificate URLs to monitor
+    - `AZUREKEYVAULTSECRET_1..N` — Azure Key Vault secret URLs to monitor; vault-only URL monitors all secrets
+    - `SECRET_WARNING_VALIDITY_DAYS` — days before expiry to trigger a warning for secrets (default: 30)
+    - `CHECK_CRED_JOB_SCHEDULE` — single cron schedule for monitoring both certs and secrets
+    - `SECRET_CHECK_INCLUDE_DISABLED` — when using a vault-only URL, include disabled secrets in monitoring (default: false)
+    - `SECRET_CHECK_REQUIRE_EXPIRE_DATE` — when using a vault-only URL, only monitor secrets that have an expiration date set (default: true)
+  - Add a "Secret Monitoring" section explaining the feature and dashboard Secrets tab
+  - Update the Docker/ACA examples to show secrets monitoring alongside certs
+  - Update the Features checklist to include Azure Key Vault secret monitoring
