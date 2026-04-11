@@ -2,7 +2,7 @@
 
 ## What This Project Does
 
-Sharp Cert Manager monitors TLS certificates (from URLs) and Azure Key Vault certificates/secrets for expiration. It has two entry points: a web dashboard (`cmd/api/`) and a CLI tool (`cmd/sharp-cred-manager/`). Background jobs run on cron schedules and send expiry alerts to Teams or Slack webhooks.
+sharp-cred-manager monitors TLS certificates (from URLs) and Azure Key Vault certificates/secrets for expiration. It has two entry points: a web dashboard (`cmd/api/`) and a CLI tool (`cmd/sharp-cred-manager/`). Background jobs run on cron schedules and send expiry alerts to Teams or Slack webhooks.
 
 ## Build & Run
 
