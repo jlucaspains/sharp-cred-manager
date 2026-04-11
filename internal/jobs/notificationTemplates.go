@@ -120,7 +120,8 @@ const teamsMessageTemplate = `{
 "items": [
 {
 "type": "TextBlock",
-"text": "{{if not $item.IsValid}}❌{{else if $item.ExpirationWarning}}⚠️{{else}}✔️{{end}}{{$item.Name}}"
+"text": "{{if not $item.IsValid}}❌{{else if $item.ExpirationWarning}}⚠️{{else}}✔️{{end}} {{$item.Name}}",
+					"wrap": true
 }
 ]
 },
@@ -198,20 +199,20 @@ const teamsMessageTemplate = `{
 type NotifierType int
 
 const (
-Teams NotifierType = iota
-Slack
+	Teams NotifierType = iota
+	Slack
 )
 
 func (n NotifierType) String() string {
-return [...]string{"Teams", "Slack"}[n]
+	return [...]string{"Teams", "Slack"}[n]
 }
 
 var Notifiers = map[string]NotifierType{
-"teams": Teams,
-"slack": Slack,
+	"teams": Teams,
+	"slack": Slack,
 }
 
 var NotificationTemplates = map[NotifierType]string{
-Teams: teamsMessageTemplate,
-Slack: slackMessageTemplate,
+	Teams: teamsMessageTemplate,
+	Slack: slackMessageTemplate,
 }
