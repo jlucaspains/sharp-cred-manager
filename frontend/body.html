@@ -2,20 +2,50 @@
     <div class="app">
         <header class="w-full shadow-sm body-font">
             <div class="flex flex-col flex-wrap items-center p-5 mx-auto">
-                <div class="top-bar-title mb-4 text-white">sharp-cert-manager</div>
+                <div class="top-bar-title mb-4 text-white">sharp-cred-manager</div>
             </div>
         </header>
 
         <main>
-            <div class="grid grid-flow-row gap-8 mt-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {{- range . }}
-                <div data-testid="result-item"
-                    class="check-item rounded shadow-lg shadow-gray-200 dark:shadow-gray-900 bg-white dark:bg-gray-800 duration-300 hover:-translate-y-1">
-                    {{- template "item.html" . }}
-                </div>
-                {{- end}}
+            <div class="flex border-b border-gray-700 mb-4">
+                <button id="tab-btn-certs" onclick="showTab('certs')"
+                    class="px-6 py-2 text-white font-medium border-b-2 border-blue-500">
+                    Certificates
+                </button>
+                <button id="tab-btn-secrets"
+                    hx-get="/secrets-panel" hx-target="#panel-secrets" hx-trigger="click once"
+                    onclick="showTab('secrets')"
+                    class="px-6 py-2 text-gray-400 font-medium border-b-2 border-transparent hover:text-white">
+                    Secrets
+                </button>
             </div>
+
+            <div id="panel-certs">
+                <div class="grid grid-flow-row gap-8 mt-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {{- range . }}
+                    <div data-testid="result-item"
+                        class="check-item rounded shadow-lg shadow-gray-200 dark:shadow-gray-900 bg-white dark:bg-gray-800 duration-300 hover:-translate-y-1">
+                        {{- template "certItem.html" . }}
+                    </div>
+                    {{- end}}
+                </div>
+            </div>
+
+            <div id="panel-secrets" style="display:none"></div>
+
             <div id="modal"></div>
         </main>
     </div>
 </div>
+
+<script>
+function showTab(name) {
+    ['certs', 'secrets'].forEach(function(p) {
+        document.getElementById('panel-' + p).style.display = p === name ? '' : 'none';
+        var btn = document.getElementById('tab-btn-' + p);
+        btn.className = p === name
+            ? 'px-6 py-2 text-white font-medium border-b-2 border-blue-500'
+            : 'px-6 py-2 text-gray-400 font-medium border-b-2 border-transparent hover:text-white';
+    });
+}
+</script>

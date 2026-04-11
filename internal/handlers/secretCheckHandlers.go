@@ -9,13 +9,13 @@ import (
 	"github.com/jlucaspains/sharp-cred-manager/internal/services"
 )
 
-func (h Handlers) GetCertList(w http.ResponseWriter, r *http.Request) {
-	result := h.CertList
+func (h Handlers) GetSecretList(w http.ResponseWriter, r *http.Request) {
+	result := h.SecretList
 
 	h.JSON(w, http.StatusOK, result)
 }
 
-func (h Handlers) CheckCertStatus(w http.ResponseWriter, r *http.Request) {
+func (h Handlers) CheckSecretStatus(w http.ResponseWriter, r *http.Request) {
 	name, _ := h.getQueryParam(r, "name")
 
 	log.Println("Received message for name: " + name)
@@ -25,15 +25,15 @@ func (h Handlers) CheckCertStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idx := slices.IndexFunc(h.CertList, func(c models.CheckCertItem) bool { return c.Name == name })
+	idx := slices.IndexFunc(h.SecretList, func(c models.CheckSecretItem) bool { return c.Name == name })
 
 	if idx < 0 {
-		h.JSON(w, http.StatusBadRequest, &models.ErrorResult{Errors: []string{"the provided cert name is not configured"}})
+		h.JSON(w, http.StatusBadRequest, &models.ErrorResult{Errors: []string{"the provided secret name is not configured"}})
 		return
 	}
 
-	item := h.CertList[idx]
-	result, err := services.CheckCertStatus(item, h.ExpirationWarningDays)
+	item := h.SecretList[idx]
+	result, err := services.CheckSecretStatus(item, h.SecretWarningValidityDays)
 
 	if err != nil {
 		h.JSON(w, http.StatusBadRequest, &models.ErrorResult{Errors: []string{err.Error()}})

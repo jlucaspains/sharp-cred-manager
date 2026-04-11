@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/jlucaspains/sharp-cert-manager/internal/models"
-	"github.com/jlucaspains/sharp-cert-manager/internal/services"
+	"github.com/jlucaspains/sharp-cred-manager/internal/models"
+	"github.com/jlucaspains/sharp-cred-manager/internal/services"
 )
 
 var indexTemplate *template.Template
@@ -90,6 +90,78 @@ func (h Handlers) GetItemDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = indexTemplate.ExecuteTemplate(w, "itemModal.html", result)
+
+	handleError(w, err)
+}
+
+func (h Handlers) GetSecretsPanel(w http.ResponseWriter, r *http.Request) {
+	initTemplates()
+
+	err := indexTemplate.ExecuteTemplate(w, "secretsPanel.html", h.SecretList)
+
+	handleError(w, err)
+}
+
+func (h Handlers) GetSecretItem(w http.ResponseWriter, r *http.Request) {
+	initTemplates()
+
+	name, _ := h.getQueryParam(r, "name")
+
+	log.Println("Received get secret item for name: " + name)
+
+	if name == "" {
+		h.HTML(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	idx := slices.IndexFunc(h.SecretList, func(s models.CheckSecretItem) bool { return s.Name == name })
+
+	if idx < 0 {
+		h.HTML(w, http.StatusBadRequest, "the provided secret name is not configured")
+		return
+	}
+
+	item := h.SecretList[idx]
+	result, err := services.CheckSecretStatus(item, h.SecretWarningValidityDays)
+
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	err = indexTemplate.ExecuteTemplate(w, "secretItemLoaded.html", result)
+
+	handleError(w, err)
+}
+
+func (h Handlers) GetSecretItemDetail(w http.ResponseWriter, r *http.Request) {
+	initTemplates()
+
+	name, _ := h.getQueryParam(r, "name")
+
+	log.Println("Received secret detail message for name: " + name)
+
+	if name == "" {
+		h.HTML(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	idx := slices.IndexFunc(h.SecretList, func(s models.CheckSecretItem) bool { return s.Name == name })
+
+	if idx < 0 {
+		h.HTML(w, http.StatusBadRequest, "the provided secret name is not configured")
+		return
+	}
+
+	item := h.SecretList[idx]
+	result, err := services.CheckSecretStatus(item, h.SecretWarningValidityDays)
+
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	err = indexTemplate.ExecuteTemplate(w, "secretItemModal.html", result)
 
 	handleError(w, err)
 }

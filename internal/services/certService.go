@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jlucaspains/sharp-cert-manager/internal/models"
+	"github.com/jlucaspains/sharp-cred-manager/internal/models"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azcertificates"
@@ -51,7 +51,7 @@ func GetConfigCerts() []models.CheckCertItem {
 	}
 
 	for i := 1; true; i++ {
-		rawUrl, ok := os.LookupEnv(fmt.Sprintf("AZUREKEYVAULT_%d", i))
+		rawUrl, ok := os.LookupEnv(fmt.Sprintf("AZUREKEYVAULTCERT_%d", i))
 		if !ok {
 			break
 		}
@@ -142,7 +142,7 @@ func prepareResult(certificate *x509.Certificate, peerCertificates []*x509.Certi
 	}
 }
 
-func getValidityInDays(startDate time.Time, endDate time.Time) int {
+func getValidityInDays(startDate, endDate time.Time) int {
 	if startDate.IsZero() || endDate.IsZero() {
 		return 0
 	}

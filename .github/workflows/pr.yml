@@ -37,7 +37,7 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            sharp-cert-manager
+            sharp-cred-manager
           tags: |
             type=ref,event=pr
 

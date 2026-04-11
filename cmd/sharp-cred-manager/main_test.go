@@ -138,8 +138,8 @@ func TestInit(t *testing.T) {
 		t.Fatal("checkCmd should not be nil")
 	}
 
-	if rootCmd.Use != "sharp-cert-manager" {
-		t.Errorf("expected rootCmd.Use to be 'sharp-cert-manager', got '%s'", rootCmd.Use)
+	if rootCmd.Use != "sharp-cred-manager" {
+		t.Errorf("expected rootCmd.Use to be 'sharp-cred-manager', got '%s'", rootCmd.Use)
 	}
 
 	if checkCmd.Use != "check" {

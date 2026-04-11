@@ -9,15 +9,15 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/jlucaspains/sharp-cert-manager/internal/handlers"
-	"github.com/jlucaspains/sharp-cert-manager/internal/jobs"
-	"github.com/jlucaspains/sharp-cert-manager/internal/midlewares"
-	"github.com/jlucaspains/sharp-cert-manager/internal/models"
-	"github.com/jlucaspains/sharp-cert-manager/internal/services"
+	"github.com/jlucaspains/sharp-cred-manager/internal/handlers"
+	"github.com/jlucaspains/sharp-cred-manager/internal/jobs"
+	"github.com/jlucaspains/sharp-cred-manager/internal/midlewares"
+	"github.com/jlucaspains/sharp-cred-manager/internal/models"
+	"github.com/jlucaspains/sharp-cred-manager/internal/services"
 	"github.com/joho/godotenv"
 )
 
-var checkCertJob = &jobs.CheckCertJob{}
+var checkCredJob = &jobs.CheckCredJob{}
 var env string
 
 func loadEnv() {
@@ -45,16 +45,15 @@ func getJobNotifier() jobs.Notifier {
 	return result
 }
 
-func startJobs(siteList []models.CheckCertItem) {
-	schedule, ok := os.LookupEnv("CHECK_CERT_JOB_SCHEDULE")
+func startJobs(certList []models.CheckCertItem, secretList []models.CheckSecretItem) {
+	schedule, ok := os.LookupEnv("CHECK_CRED_JOB_SCHEDULE")
 
 	if ok {
 		log.Printf("Starting job engine with cron: %s", schedule)
-		level, _ := os.LookupEnv("CHECK_CERT_JOB_NOTIFICATION_LEVEL")
-		warningDays := getCertExpirationWarningDays()
-		err := checkCertJob.Init(schedule, level, warningDays, siteList, getJobNotifier())
+		level, _ := os.LookupEnv("CHECK_CRED_JOB_NOTIFICATION_LEVEL")
+		err := checkCredJob.Init(schedule, level, getCertExpirationWarningDays(), getSecretWarningValidityDays(), certList, secretList, getJobNotifier())
 		if err == nil {
-			checkCertJob.Start()
+			checkCredJob.Start()
 			log.Print("Job engine started")
 		} else {
 			log.Printf("Error starting job: %s", err)
@@ -75,6 +74,17 @@ func getCertExpirationWarningDays() int {
 	return 30
 }
 
+func getSecretWarningValidityDays() int {
+	warningDaysConfig, _ := os.LookupEnv("SECRET_WARNING_VALIDITY_DAYS")
+	warningDays, _ := strconv.Atoi(warningDaysConfig)
+
+	if warningDays > 0 {
+		return warningDays
+	}
+
+	return 30
+}
+
 func getCORSOrigins() string {
 	corsOrigins, ok := os.LookupEnv("CORS_ORIGINS")
 	if ok {
@@ -85,10 +95,10 @@ func getCORSOrigins() string {
 }
 
 func stopJobs() {
-	checkCertJob.Stop()
+	checkCredJob.Stop()
 }
 
-func startWebServer(siteList []models.CheckCertItem) {
+func startWebServer(siteList []models.CheckCertItem, secretList []models.CheckSecretItem) {
 	headless, _ := os.LookupEnv("HEADLESS")
 
 	if headless == "true" {
@@ -99,12 +109,16 @@ func startWebServer(siteList []models.CheckCertItem) {
 	handlers := &handlers.Handlers{}
 	handlers.CertList = siteList
 	handlers.ExpirationWarningDays = getCertExpirationWarningDays()
+	handlers.SecretList = secretList
+	handlers.SecretWarningValidityDays = getSecretWarningValidityDays()
 	handlers.CORSOrigins = getCORSOrigins()
 
 	router := http.NewServeMux()
 
-	router.HandleFunc("GET /api/check-cert", handlers.CheckStatus)
+	router.HandleFunc("GET /api/check-cert", handlers.CheckCertStatus)
 	router.HandleFunc("GET /api/cert-list", handlers.GetCertList)
+	router.HandleFunc("GET /api/secret-list", handlers.GetSecretList)
+	router.HandleFunc("GET /api/check-secret", handlers.CheckSecretStatus)
 	router.HandleFunc("GET /health", handlers.HealthCheck)
 
 	if handlers.CORSOrigins != "" {
@@ -114,6 +128,9 @@ func startWebServer(siteList []models.CheckCertItem) {
 	router.HandleFunc("GET /", handlers.Index)
 	router.HandleFunc("GET /item", handlers.GetItem)
 	router.HandleFunc("GET /itemDetail", handlers.GetItemDetail)
+	router.HandleFunc("GET /secrets-panel", handlers.GetSecretsPanel)
+	router.HandleFunc("GET /secret-item", handlers.GetSecretItem)
+	router.HandleFunc("GET /secret-item-detail", handlers.GetSecretItemDetail)
 	router.HandleFunc("GET /empty", handlers.GetEmpty)
 	router.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./public/"))))
 
@@ -152,22 +169,21 @@ func startWebServer(siteList []models.CheckCertItem) {
 	log.Print("Web Server Started")
 }
 
-func runOnce(siteList []models.CheckCertItem, done chan os.Signal) {
-	schedule, _ := os.LookupEnv("CHECK_CERT_JOB_SCHEDULE")
+func runOnce(siteList []models.CheckCertItem, secretList []models.CheckSecretItem, done chan os.Signal) {
+	schedule, _ := os.LookupEnv("CHECK_CRED_JOB_SCHEDULE")
 	headless, _ := os.LookupEnv("HEADLESS")
 
 	if schedule != "" || headless != "true" {
 		return
 	}
 
-	log.Print("Running the checkCertJob once")
-	level, _ := os.LookupEnv("CHECK_CERT_JOB_NOTIFICATION_LEVEL")
-	warningDays := getCertExpirationWarningDays()
-	err := checkCertJob.Init("* * * * *", level, warningDays, siteList, getJobNotifier())
+	log.Print("Running the checkCredJob once")
+	level, _ := os.LookupEnv("CHECK_CRED_JOB_NOTIFICATION_LEVEL")
+	err := checkCredJob.Init("* * * * *", level, getCertExpirationWarningDays(), getSecretWarningValidityDays(), siteList, secretList, getJobNotifier())
 	if err == nil {
-		checkCertJob.RunNow()
+		checkCredJob.RunNow()
 	} else {
-		log.Fatalf("Error running the checkCertJob once: %s", err)
+		log.Fatalf("Error running the checkCredJob once: %s", err)
 	}
 
 	// We don't want to wait on anything so do a graceful exist
@@ -178,13 +194,14 @@ func main() {
 	loadEnv()
 
 	siteList := services.GetConfigCerts()
+	secretList := services.GetConfigSecrets()
 
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	startWebServer(siteList)
-	startJobs(siteList)
-	runOnce(siteList, done)
+	startWebServer(siteList, secretList)
+	startJobs(siteList, secretList)
+	runOnce(siteList, secretList, done)
 
 	<-done
 	log.Print("Stopping jobs...")

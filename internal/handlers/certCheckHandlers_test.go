@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jlucaspains/sharp-cert-manager/internal/models"
+	"github.com/jlucaspains/sharp-cred-manager/internal/models"
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 )
@@ -35,7 +35,7 @@ func TestGetCheckStatus(t *testing.T) {
 	handlers.CertList = certList
 
 	router := http.NewServeMux()
-	router.HandleFunc("GET /check-cert", handlers.CheckStatus)
+	router.HandleFunc("GET /check-cert", handlers.CheckCertStatus)
 
 	url := fmt.Sprintf("/check-cert?name=%s", "blog.lpains.net")
 	code, body, _, _, err := makeRequest[models.CertCheckResult](router, "GET", url, nil)
@@ -54,7 +54,7 @@ func TestGetCheckStatusNoName(t *testing.T) {
 	handlers.CertList = certList
 
 	router := http.NewServeMux()
-	router.HandleFunc("GET /check-cert", handlers.CheckStatus)
+	router.HandleFunc("GET /check-cert", handlers.CheckCertStatus)
 
 	code, body, _, _, err := makeRequest[models.ErrorResult](router, "GET", "/check-cert", nil)
 
@@ -68,7 +68,7 @@ func TestGetCheckStatusInvalidName(t *testing.T) {
 	handlers.CertList = certList
 
 	router := http.NewServeMux()
-	router.HandleFunc("GET /check-cert", handlers.CheckStatus)
+	router.HandleFunc("GET /check-cert", handlers.CheckCertStatus)
 
 	code, body, _, _, err := makeRequest[models.ErrorResult](router, "GET", "/check-cert?name=invalid", nil)
 

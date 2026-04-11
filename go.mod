@@ -1,4 +1,4 @@
-module github.com/jlucaspains/sharp-cert-manager
+module github.com/jlucaspains/sharp-cred-manager
 
 go 1.24.0
 
@@ -7,6 +7,7 @@ toolchain go1.24.1
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azcertificates v1.4.0
+	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.4.0
 	github.com/adhocore/gronx v1.19.6
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/jedib0t/go-pretty/v6 v6.7.8

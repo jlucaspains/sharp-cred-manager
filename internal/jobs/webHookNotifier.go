@@ -2,7 +2,6 @@ package jobs
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -25,17 +24,17 @@ type WebHookNotificationCard struct {
 	Title           string
 	Description     string
 	NotificationUrl string
-	Items           []CertCheckNotification
+	Groups          []CheckNotificationGroup
 	Mentions        []string
 }
 
 func (m *WebHookNotifier) Init(notifierType NotifierType, webhookUrl string, notificationTitle string, notificationBody string, notificationUrl string, messageMentions string) {
 	if notificationTitle == "" {
-		notificationTitle = "Sharp Cert Manager Summary"
+		notificationTitle = "Sharp Cred Manager Summary"
 	}
 
 	if notificationBody == "" {
-		notificationBody = fmt.Sprintf("The following certificates were checked on %s", time.Now().Format("01/02/2006"))
+		notificationBody = fmt.Sprintf("The following credentials were checked on %s", time.Now().Format("01/02/2006"))
 	}
 
 	m.NotifierType = notifierType
@@ -54,14 +53,14 @@ func parseMentions(mentions string) []string {
 	return strings.Split(mentions, ",")
 }
 
-func (m *WebHookNotifier) Notify(result []CertCheckNotification) error {
+func (m *WebHookNotifier) Notify(groups []CheckNotificationGroup) error {
 	client := m.getClient()
 	parsedTemplate := m.getTemplate()
 	card := WebHookNotificationCard{
 		Title:           m.NotificationTitle,
 		Description:     m.NotificationBody,
 		NotificationUrl: m.NotificationUrl,
-		Items:           result,
+		Groups:          groups,
 		Mentions:        m.Mentions,
 	}
 
@@ -83,8 +82,13 @@ func (m *WebHookNotifier) Notify(result []CertCheckNotification) error {
 
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
-		return errors.New("error sending notification to Teams")
+	if response.StatusCode != 200 && response.StatusCode != 202 {
+		body := new(bytes.Buffer)
+		body.ReadFrom(response.Body)
+		if body.Len() > 0 {
+			return fmt.Errorf("error sending notification to %s. Error %s: %s", m.NotifierType, response.Status, body.String())
+		}
+		return fmt.Errorf("error sending notification to %s. Error %s", m.NotifierType, response.Status)
 	}
 
 	return nil
@@ -95,6 +99,9 @@ func (m *WebHookNotifier) getTemplate() *template.Template {
 		m.parsedTemplate, _ = template.New("template").Funcs(template.FuncMap{
 			"split": func(s, sep string) []string {
 				return strings.Split(s, sep)
+			},
+			"replace": func(input, from, to string) string {
+				return strings.ReplaceAll(input, from, to)
 			},
 		}).Parse(NotificationTemplates[m.NotifierType])
 	}

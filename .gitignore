@@ -5,5 +5,7 @@ coverage
 tmp
 *.exe
 *.crt
+*.cer
 *.key
 cover.out
+.DS_Store
