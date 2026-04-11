@@ -69,7 +69,7 @@ sharp-cred-manager check --url https://expired.badssl.com/
 * Go 1.24+
 * Tailwindcss CLI
 
-### CLone the repo
+### Clone the repo
 ```bash
 git clone https://github.com/jlucaspains/sharp-cred-manager.git
 ```
