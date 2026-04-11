@@ -18,8 +18,8 @@ Slack message:
 ## V2
 V2 is a new major version that introduces:
 1. **Azure Key Vault secret monitoring** — monitor secrets' expiration and enabled/active status alongside certificates
-3. **Secrets dashboard tab** — the web UI now has a Secrets tab alongside the existing Certificates tab
-4. **Breaking Change**: The app was renamed from Sharp Cert Manager to **Sharp Cred Manager** as it now monitors credentials beyond certificates
+2. **Secrets dashboard tab** — the web UI now has a Secrets tab alongside the existing Certificates tab
+3. **Breaking Change**: The app was renamed from Sharp Cert Manager to **Sharp Cred Manager** as it now monitors credentials beyond certificates
 
 ### Migrate from v1.x to v2.x
 
@@ -189,8 +189,8 @@ A secret is considered **valid** when:
 | CHECK_CRED_JOB_SCHEDULE           | Cron schedule to run the job that checks both certificates and secrets together. |                                               |
 | WEBHOOK_URL                       | Webhook URL to send the message to.                                             |                                               |
 | MESSAGE_URL                       | URL to be used message action                                                   |                                               |
-| MESSAGE_TITLE                     | Message  title                                                                  | Sharp Cert Manager Summary                    |
-| MESSAGE_BODY                      | Message body body                                                               | The following credentials were checked on %s |
+| MESSAGE_TITLE                     | Message  title                                                                  | Sharp Cred Manager Summary                    |
+| MESSAGE_BODY                      | Message body                                                                    | The following credentials were checked on %s |
 | WEB_HOST_PORT                     | Host and port the web server will listen on                                     | :8000                                         |
 | WEBHOOK_TYPE                      | Defines whether teams or slack webhooks are used                                | teams                                         |
 | TLS_CERT_FILE                     | Certificate used for TLS hosting                                                |                                               |

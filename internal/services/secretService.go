@@ -103,7 +103,10 @@ func CheckSecretStatus(item models.CheckSecretItem, warningDays int) (*models.Se
 }
 
 func checkAzureSecretStatus(item models.CheckSecretItem, warningDays int) (*models.SecretCheckResult, error) {
-	parsedUrl, _ := url.Parse(item.Url)
+	parsedUrl, err := url.Parse(item.Url)
+	if err != nil {
+		return nil, err
+	}
 	vaultUrl := parsedUrl.Scheme + "://" + parsedUrl.Host
 
 	secret, err := getSecretFromKeyVault(vaultUrl, item.SecretName)
