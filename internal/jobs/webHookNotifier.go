@@ -82,7 +82,7 @@ func (m *WebHookNotifier) Notify(groups []CheckNotificationGroup) error {
 
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != 200 && response.StatusCode != 202 {
 		body := new(bytes.Buffer)
 		body.ReadFrom(response.Body)
 		if body.Len() > 0 {
