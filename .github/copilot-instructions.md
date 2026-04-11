@@ -17,7 +17,7 @@ go run ./cmd/api/main.go
 go run ./cmd/sharp-cred-manager/ check --url https://example.com
 
 # Build Docker image
-docker build -f Dockerfile -t sharp-cert-manager .
+docker build -f Dockerfile -t sharp-cred-manager .
 ```
 
 ## Tests & Lint

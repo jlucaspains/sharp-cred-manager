@@ -1,17 +1,19 @@
 # sharp-cred-manager
-This project aims to provide a simple tool to monitor TLS certificate and Azure Key Vault secret validity. It is entirely built using [GO](https://go.dev/).
+This project aims to provide a simple tool to monitor TLS certificates and secret validity. For certificate monitoring, both direct website connection and Azure Key Vault are supported. For secret monitoring, Azure Key Vault is supported. It is entirely built using [GO](https://go.dev/).
 
-![Demo frontend image](/docs/demo.jpeg)
+![Demo frontend image 1](/docs/demo.png)
+
+![Demo frontend image 2](/docs/demo2.png)
 
 Additionally, the app can be configured to run jobs at a given schedule. The jobs will check the configured websites and secrets and send a message to a Webhook with a summary of their validity.
 
 Teams message:
 
-![Demo teams message](/docs/TeamsDemo.jpg)
+![Demo teams message](/docs/TeamsDemo.png)
 
 Slack message:
 
-![Demo slack message](/docs/SlackDemo.jpg)
+![Demo slack message](/docs/SlackDemo.png)
 
 ## V2
 V2 is a new major version that introduces:
@@ -36,6 +38,10 @@ V2 is a new major version that introduces:
 | `SECRET_WARNING_VALIDITY_DAYS` | Days before expiry to trigger a warning for secrets | 30 |
 | `SECRET_CHECK_INCLUDE_DISABLED` | When using a vault-only URL, include disabled secrets | false |
 | `SECRET_CHECK_REQUIRE_EXPIRE_DATE` | When using a vault-only URL, only monitor secrets that have an expiration date | true |
+
+**Azure Key Vault permissions**
+
+To monitor secrets, the Key Vault Reader role or equivalent is required. The Reader role grants access to list the properties of secrets, but not the value. It is not required nor recommended to allow sharp-cred-manager to read secret values.
 
 # Getting started
 ### Running webserver via Docker
