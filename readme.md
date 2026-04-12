@@ -41,16 +41,15 @@ V2 is a new major version that introduces:
 
 **Azure Key Vault permissions**
 
-To monitor secrets, the Key Vault Reader role or equivalent is required. The Reader role grants access to list the properties of secrets, but not the value. It is not required nor recommended to allow sharp-cred-manager to read secret values.
+To monitor secrets, the Key Vault Reader role or equivalent is required. The Reader role grants access to list the properties of secrets, but not the value. See [DefaultAzureCredential Class](https://learn.microsoft.com/en-us/dotnet/api/azure.identity.defaultazurecredential?view=azure-dotnet) for the list of possible ways to authenticate. It is not required nor recommended to allow sharp-cred-manager to read secret values.
 
 # Getting started
-### Running webserver via Docker
-> Note: replace docker with podman if needed.
 
+### Running webserver via Docker
 The easiest way to get started is to run the Docker image published to [Docker Hub](https://hub.docker.com/repository/docker/jlucaspains/sharp-cred-manager/general). Replace the `SITE_1` parameter value with a website to monitor. To add other websites, just add parameters `SITE_n` where `n` is an integer.
 
 ```bash
-docker run -it -p 8000:8000 \
+docker/podman run -it -p 8000:8000 \
     --env ENV=DEV \
     --env SITE_1=https://expired.badssl.com/ \
     --env AZUREKEYVAULTCERT_1=https://mykeyvault.vault.azure.net/certificates/my-cert \
@@ -99,6 +98,7 @@ go run .\cmd\sharp-cred-manager\ check --url https://expired.badssl.com/
 
 ## Running in Azure
 ### Azure Container Instance
+
 Create an ACI resource via Azure CLI. The following parameters may be adjusted
 1. `--resource-group`: resource group to be used
 2. `--name`: name of the ACI resource
@@ -117,7 +117,7 @@ az container create \
 ```
 
 ### Azure Container App
-> While more expensive, an ACA is a better option for production environments as it provides a more robust and scalable environment.
+> Note: While more expensive, an ACA is a better option for production environments as it provides a more robust and scalable environment.
 
 First, create an ACA environment using Azure CLI:
 
@@ -215,7 +215,7 @@ Below features are currentl being evaluated and/or built. If you have a suggesti
 - [x] Monitor certificate in background
 - [x] Teams WebHook integration
 - [x] Slack WebHook integration
-- [x] Azure Key Vault certificate integration
+- [x] Azure Key Vault certificate monitoring
 - [x] Azure Key Vault secret monitoring
 
 ## Headless Mode
