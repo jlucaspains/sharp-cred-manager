@@ -50,4 +50,5 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: jlucaspains/sharp-cred-manager
           enable-url-completion: true
+          readme-filepath: ./readme.md
           short-description: ${{ github.event.repository.description }}
