@@ -18,6 +18,12 @@
                     class="px-6 py-2 text-gray-400 font-medium border-b-2 border-transparent hover:text-white">
                     Secrets
                 </button>
+                <button id="tab-btn-appregs"
+                    hx-get="/appregs-panel" hx-target="#panel-appregs" hx-trigger="click once"
+                    onclick="showTab('appregs')"
+                    class="px-6 py-2 text-gray-400 font-medium border-b-2 border-transparent hover:text-white">
+                    App Registrations
+                </button>
             </div>
 
             <div id="panel-certs">
@@ -33,6 +39,8 @@
 
             <div id="panel-secrets" style="display:none"></div>
 
+            <div id="panel-appregs" style="display:none"></div>
+
             <div id="modal"></div>
         </main>
     </div>
@@ -40,7 +48,7 @@
 
 <script>
 function showTab(name) {
-    ['certs', 'secrets'].forEach(function(p) {
+    ['certs', 'secrets', 'appregs'].forEach(function(p) {
         document.getElementById('panel-' + p).style.display = p === name ? '' : 'none';
         var btn = document.getElementById('tab-btn-' + p);
         btn.className = p === name

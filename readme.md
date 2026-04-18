@@ -54,6 +54,7 @@ docker/podman run -it -p 8000:8000 \
     --env SITE_1=https://expired.badssl.com/ \
     --env AZUREKEYVAULTCERT_1=https://mykeyvault.vault.azure.net/certificates/my-cert \
     --env AZUREKEYVAULTSECRET_1=https://mykeyvault.vault.azure.net/secrets/my-secret \
+    --env APPREGISTRATION_1=<tenantId>/<appId> \
     jlucaspains/sharp-cred-manager
 ```
 
@@ -113,7 +114,7 @@ az container create \
     --image jlucaspains/sharp-cred-manager \
     --dns-name-label sharp-cred-manager \
     --ports 8000 \
-    --environment-variables ENV=DEV SITE_1=https://expired.badssl.com/ AZUREKEYVAULTCERT_1=https://mykeyvault.vault.azure.net/certificates/my-cert AZUREKEYVAULTSECRET_1=https://mykeyvault.vault.azure.net/secrets/my-secret
+    --environment-variables ENV=DEV SITE_1=https://expired.badssl.com/ AZUREKEYVAULTCERT_1=https://mykeyvault.vault.azure.net/certificates/my-cert AZUREKEYVAULTSECRET_1=https://mykeyvault.vault.azure.net/secrets/my-secret APPREGISTRATION_1=<tenantId>/<appId>
 ```
 
 ### Azure Container App
@@ -140,7 +141,7 @@ az containerapp create \
     --image jlucaspains/sharp-cred-manager \
     --environment ace-sharpcredmanager-001 \
     --ingress external --target-port 8000 \
-    --env-vars ENV=DEV SITE_1=https://expired.badssl.com/ AZUREKEYVAULTCERT_1=https://mykeyvault.vault.azure.net/certificates/my-cert AZUREKEYVAULTSECRET_1=https://mykeyvault.vault.azure.net/secrets/my-secret \
+    --env-vars ENV=DEV SITE_1=https://expired.badssl.com/ AZUREKEYVAULTCERT_1=https://mykeyvault.vault.azure.net/certificates/my-cert AZUREKEYVAULTSECRET_1=https://mykeyvault.vault.azure.net/secrets/my-secret APPREGISTRATION_1=<tenantId>/<appId> \
     --query properties.configuration.ingress.fqdn
 ```
 
@@ -179,6 +180,33 @@ A secret is considered **valid** when:
 2. Its expiration date (if set) has not passed.
 3. Its expiration date is not within `SECRET_WARNING_VALIDITY_DAYS` days (warning state).
 
+## App Registration Monitoring
+The app can monitor **Azure App Registration credentials** — both client secrets (`passwordCredentials`) and certificates (`keyCredentials`) — checking their expiration dates. The dashboard shows an **App Registrations tab** (alongside Certificates and Secrets) where each app registration card lists all its credentials with their type and days until expiry. Clicking a card opens a detail modal.
+
+### Configuring app registrations
+Set one or more `APPREGISTRATION_N` environment variables (where N starts at 1) to `<tenantId>/<appId>`:
+
+```
+APPREGISTRATION_1=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
+```
+
+All client secrets and certificates attached to the app registration are discovered automatically at startup and monitored together.
+
+### Required Azure permission
+The identity running sharp-cred-manager needs the **`Application.Read.All`** application permission granted in Entra ID (Microsoft Graph). This allows the app to read application properties including `passwordCredentials` and `keyCredentials`.
+
+> Note: `Application.Read.All` is broader than Key Vault permissions. Grant it as an application permission (not delegated) and have it admin-consented in your tenant.
+
+### Validity rules
+A credential is considered **valid** when:
+1. Its `endDateTime` (if set) has not passed.
+2. Its `startDateTime` (if set) is not in the future.
+3. Its `endDateTime` is not within `APP_REG_WARNING_VALIDITY_DAYS` days (warning state).
+
+Credentials with no `endDateTime` are treated as valid with no expiration.
+
+The app registration card is shown as **invalid** (red) if any credential is invalid, and as a **warning** if any credential is within the warning threshold.
+
 ## All environment options
 | Environment variable              | Description                                                                     | Default value                                 |
 |-----------------------------------|---------------------------------------------------------------------------------|-----------------------------------------------|
@@ -199,6 +227,8 @@ A secret is considered **valid** when:
 | SECRET_WARNING_VALIDITY_DAYS      | Defines how many days from today a secret needs to have before a warning is raised | 30                                         |
 | SECRET_CHECK_INCLUDE_DISABLED     | When using a vault-only URL, include disabled secrets in monitoring             | false                                         |
 | SECRET_CHECK_REQUIRE_EXPIRE_DATE  | When using a vault-only URL, only monitor secrets that have an expiration date  | true                                          |
+| APPREGISTRATION_1..N              | Azure App Registration to monitor in `<tenantId>/<appId>` format. All client secrets and certificates on the registration are monitored. | |
+| APP_REG_WARNING_VALIDITY_DAYS     | Defines how many days from today an app registration credential needs to have before a warning is raised | 30              |
 | CHECK_CRED_JOB_NOTIFICATION_LEVEL | Defines minimum notification level for jobs (cert and secret). Values are Info, Warning, or Error | Warning              |
 | HEADLESS                          | If set to "true", the web server does not start.                                |                                               |
 
@@ -217,6 +247,7 @@ Below features are currentl being evaluated and/or built. If you have a suggesti
 - [x] Slack WebHook integration
 - [x] Azure Key Vault certificate monitoring
 - [x] Azure Key Vault secret monitoring
+- [x] Azure App Registration credential monitoring (client secrets and certificates)
 
 ## Headless Mode
 The `HEADLESS` environment variable is used to determine if the web server should start. If `HEADLESS` is set to "true", the web server does not start. This can be useful for running the job task only once and exiting with a success code.

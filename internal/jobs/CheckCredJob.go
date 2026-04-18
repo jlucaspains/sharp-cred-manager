@@ -47,14 +47,16 @@ type CheckCredJob struct {
 	gron              *gronx.Gronx
 	certList          []models.CheckCertItem
 	secretList        []models.CheckSecretItem
+	appRegList        []models.CheckAppRegItem
 	running           bool
 	notifier          Notifier
 	level             Level
 	certWarningDays   int
 	secretWarningDays int
+	appRegWarningDays int
 }
 
-func (c *CheckCredJob) Init(schedule string, level string, certWarningDays int, secretWarningDays int, certList []models.CheckCertItem, secretList []models.CheckSecretItem, notifier Notifier) error {
+func (c *CheckCredJob) Init(schedule string, level string, certWarningDays int, secretWarningDays int, appRegWarningDays int, certList []models.CheckCertItem, secretList []models.CheckSecretItem, appRegList []models.CheckAppRegItem, notifier Notifier) error {
 	c.gron = gronx.New()
 
 	if schedule == "" || !c.gron.IsValid(schedule) {
@@ -80,14 +82,20 @@ func (c *CheckCredJob) Init(schedule string, level string, certWarningDays int, 
 		secretWarningDays = 30
 	}
 
+	if appRegWarningDays <= 0 {
+		appRegWarningDays = 30
+	}
+
 	c.cron = schedule
 	c.certList = certList
 	c.secretList = secretList
+	c.appRegList = appRegList
 	c.ticker = time.NewTicker(time.Minute)
 	c.notifier = notifier
 	c.level = levelValue
 	c.certWarningDays = certWarningDays
 	c.secretWarningDays = secretWarningDays
+	c.appRegWarningDays = appRegWarningDays
 
 	return nil
 }
@@ -158,12 +166,32 @@ func (c *CheckCredJob) execute() {
 		}
 	}
 
+	appRegGroup := CheckNotificationGroup{Label: "App Registrations"}
+	for _, item := range c.appRegList {
+		checkStatus, err := services.CheckAppRegStatus(item, c.appRegWarningDays)
+
+		if err != nil {
+			log.Printf("Error checking app registration status: %s", err)
+			continue
+		}
+
+		log.Printf("App registration status for %s: %t", item.Name, checkStatus.IsValid)
+
+		n := c.getAppRegNotification(checkStatus)
+		if c.shouldNotify(n) {
+			appRegGroup.Items = append(appRegGroup.Items, n)
+		}
+	}
+
 	groups := []CheckNotificationGroup{}
 	if len(certGroup.Items) > 0 {
 		groups = append(groups, certGroup)
 	}
 	if len(secretGroup.Items) > 0 {
 		groups = append(groups, secretGroup)
+	}
+	if len(appRegGroup.Items) > 0 {
+		groups = append(groups, appRegGroup)
 	}
 
 	if err := c.notifier.Notify(groups); err != nil {
@@ -202,6 +230,33 @@ func (c *CheckCredJob) getSecretNotification(secret *models.SecretCheckResult) C
 	if secret.IsValid && secret.ExpiresOn != nil {
 		days := int(time.Until(*secret.ExpiresOn).Hours() / 24)
 		result.Messages = append(result.Messages, fmt.Sprintf("Secret expires in %d days", days))
+	}
+
+	return result
+}
+
+func (c *CheckCredJob) getAppRegNotification(appReg *models.AppRegCheckResult) CheckNotification {
+	result := CheckNotification{
+		Name:              appReg.AppName,
+		IsValid:           appReg.IsValid,
+		ExpirationWarning: appReg.ExpirationWarning,
+		Messages:          []string{},
+	}
+
+	for _, cred := range appReg.Credentials {
+		credType := "Secret"
+		if cred.CredentialType == models.AppRegCredentialCertificate {
+			credType = "Certificate"
+		}
+		label := fmt.Sprintf("%s (%s)", cred.DisplayName, credType)
+
+		if !cred.IsValid {
+			for _, issue := range cred.ValidationIssues {
+				result.Messages = append(result.Messages, fmt.Sprintf("%s: %s", label, issue))
+			}
+		} else if cred.ExpirationWarning {
+			result.Messages = append(result.Messages, fmt.Sprintf("%s: expires in %d days", label, cred.ValidityInDays))
+		}
 	}
 
 	return result

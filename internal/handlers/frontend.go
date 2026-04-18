@@ -166,6 +166,78 @@ func (h Handlers) GetSecretItemDetail(w http.ResponseWriter, r *http.Request) {
 	handleError(w, err)
 }
 
+func (h Handlers) GetAppRegsPanel(w http.ResponseWriter, r *http.Request) {
+	initTemplates()
+
+	err := indexTemplate.ExecuteTemplate(w, "appRegsPanel.html", h.AppRegList)
+
+	handleError(w, err)
+}
+
+func (h Handlers) GetAppRegItem(w http.ResponseWriter, r *http.Request) {
+	initTemplates()
+
+	name, _ := h.getQueryParam(r, "name")
+
+	log.Println("Received get app reg item for name: " + name)
+
+	if name == "" {
+		h.HTML(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	idx := slices.IndexFunc(h.AppRegList, func(a models.CheckAppRegItem) bool { return a.Name == name })
+
+	if idx < 0 {
+		h.HTML(w, http.StatusBadRequest, "the provided app registration name is not configured")
+		return
+	}
+
+	item := h.AppRegList[idx]
+	result, err := services.CheckAppRegStatus(item, h.AppRegWarningValidityDays)
+
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	err = indexTemplate.ExecuteTemplate(w, "appRegItemLoaded.html", result)
+
+	handleError(w, err)
+}
+
+func (h Handlers) GetAppRegItemDetail(w http.ResponseWriter, r *http.Request) {
+	initTemplates()
+
+	name, _ := h.getQueryParam(r, "name")
+
+	log.Println("Received app reg detail message for name: " + name)
+
+	if name == "" {
+		h.HTML(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	idx := slices.IndexFunc(h.AppRegList, func(a models.CheckAppRegItem) bool { return a.Name == name })
+
+	if idx < 0 {
+		h.HTML(w, http.StatusBadRequest, "the provided app registration name is not configured")
+		return
+	}
+
+	item := h.AppRegList[idx]
+	result, err := services.CheckAppRegStatus(item, h.AppRegWarningValidityDays)
+
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	err = indexTemplate.ExecuteTemplate(w, "appRegItemModal.html", result)
+
+	handleError(w, err)
+}
+
 func (h Handlers) GetEmpty(w http.ResponseWriter, r *http.Request) {
 	h.HTML(w, http.StatusOK, "")
 }

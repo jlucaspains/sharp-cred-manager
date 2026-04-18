@@ -26,6 +26,10 @@ func TestInitTemplate(t *testing.T) {
 	assert.NotNil(t, indexTemplate.Lookup("secretsPanel.html"))
 	assert.NotNil(t, indexTemplate.Lookup("secretItemLoaded.html"))
 	assert.NotNil(t, indexTemplate.Lookup("secretItemModal.html"))
+	assert.NotNil(t, indexTemplate.Lookup("appRegItem.html"))
+	assert.NotNil(t, indexTemplate.Lookup("appRegsPanel.html"))
+	assert.NotNil(t, indexTemplate.Lookup("appRegItemLoaded.html"))
+	assert.NotNil(t, indexTemplate.Lookup("appRegItemModal.html"))
 }
 
 func TestRendersIndex(t *testing.T) {
@@ -47,8 +51,10 @@ func TestRendersIndex(t *testing.T) {
 	assert.Contains(t, body, "hx-get=\"/item?name=blog.lpains.net\"")
 	assert.Contains(t, body, "id=\"tab-btn-certs\"")
 	assert.Contains(t, body, "id=\"tab-btn-secrets\"")
+	assert.Contains(t, body, "id=\"tab-btn-appregs\"")
 	assert.Contains(t, body, "id=\"panel-certs\"")
 	assert.Contains(t, body, "id=\"panel-secrets\"")
+	assert.Contains(t, body, "id=\"panel-appregs\"")
 }
 
 func TestRendersItem(t *testing.T) {
@@ -380,4 +386,152 @@ func TestRendersSecretItemDetailBadName(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 400, code)
 	assert.Contains(t, body, "the provided secret name is not configured")
+}
+
+func TestRendersAppRegsPanel(t *testing.T) {
+	templatePath = "../../frontend"
+	indexTemplate = nil
+	handlers := new(Handlers)
+	handlers.AppRegList = []models.CheckAppRegItem{
+		{Name: "tenant-id/app-id", TenantId: "tenant-id", AppId: "app-id", AppObjectId: "obj-id", AppName: "TestApp"},
+	}
+
+	router := http.NewServeMux()
+	router.HandleFunc("GET /appregs-panel", handlers.GetAppRegsPanel)
+
+	code, _, body, _, err := makeRequest[string](router, "GET", "/appregs-panel", nil)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 200, code)
+	assert.Contains(t, body, "data-testid=\"result-item\"")
+	assert.Contains(t, body, "hx-get=\"/appreg-item?name=tenant-id/app-id\"")
+}
+
+func TestRendersAppRegItem(t *testing.T) {
+	templatePath = "../../frontend"
+	indexTemplate = nil
+
+	end := time.Now().UTC().Add(90 * 24 * time.Hour)
+	services.SetMockAppRegResult(&models.AppRegCheckResult{
+		Name:    "tenant-id/app-id",
+		AppName: "TestApp",
+		AppId:   "app-id",
+		IsValid: true,
+		Credentials: []models.AppRegCredentialResult{
+			{KeyId: "k1", DisplayName: "CI Key", CredentialType: models.AppRegCredentialSecret, IsValid: true, HasExpiration: true, ValidityInDays: 90, EndDateTime: &end},
+		},
+	})
+	defer services.SetMockAppRegResult(nil)
+
+	handlers := new(Handlers)
+	handlers.AppRegList = []models.CheckAppRegItem{
+		{Name: "tenant-id/app-id", TenantId: "tenant-id", AppId: "app-id", AppObjectId: "obj-id", AppName: "TestApp"},
+	}
+
+	router := http.NewServeMux()
+	router.HandleFunc("GET /appreg-item", handlers.GetAppRegItem)
+
+	code, _, body, _, err := makeRequest[string](router, "GET", "/appreg-item?name=tenant-id/app-id", nil)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 200, code)
+	assert.Contains(t, body, "hx-get=\"/appreg-item-detail?name=tenant-id/app-id\"")
+	assert.Contains(t, body, "<h2 class=\"text-white text-lg font-medium\">TestApp</h2>")
+}
+
+func TestRendersAppRegItemNoName(t *testing.T) {
+	handlers := new(Handlers)
+	handlers.AppRegList = []models.CheckAppRegItem{
+		{Name: "tenant-id/app-id", TenantId: "tenant-id", AppId: "app-id", AppObjectId: "obj-id", AppName: "TestApp"},
+	}
+
+	router := http.NewServeMux()
+	router.HandleFunc("GET /appreg-item", handlers.GetAppRegItem)
+
+	code, _, body, _, err := makeRequest[string](router, "GET", "/appreg-item", nil)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 400, code)
+	assert.Contains(t, body, "name is required")
+}
+
+func TestRendersAppRegItemBadName(t *testing.T) {
+	handlers := new(Handlers)
+	handlers.AppRegList = []models.CheckAppRegItem{
+		{Name: "tenant-id/app-id", TenantId: "tenant-id", AppId: "app-id", AppObjectId: "obj-id", AppName: "TestApp"},
+	}
+
+	router := http.NewServeMux()
+	router.HandleFunc("GET /appreg-item", handlers.GetAppRegItem)
+
+	code, _, body, _, err := makeRequest[string](router, "GET", "/appreg-item?name=bad-tenant/bad-app", nil)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 400, code)
+	assert.Contains(t, body, "the provided app registration name is not configured")
+}
+
+func TestRendersAppRegItemDetail(t *testing.T) {
+	templatePath = "../../frontend"
+	indexTemplate = nil
+
+	services.SetMockAppRegResult(&models.AppRegCheckResult{
+		Name:     "tenant-id/app-id",
+		AppName:  "TestApp",
+		AppId:    "app-id",
+		TenantId: "tenant-id",
+		IsValid:  true,
+		Credentials: []models.AppRegCredentialResult{
+			{KeyId: "k1", DisplayName: "CI Key", CredentialType: models.AppRegCredentialSecret, IsValid: true, HasExpiration: false},
+		},
+	})
+	defer services.SetMockAppRegResult(nil)
+
+	handlers := new(Handlers)
+	handlers.AppRegList = []models.CheckAppRegItem{
+		{Name: "tenant-id/app-id", TenantId: "tenant-id", AppId: "app-id", AppObjectId: "obj-id", AppName: "TestApp"},
+	}
+
+	router := http.NewServeMux()
+	router.HandleFunc("GET /appreg-item-detail", handlers.GetAppRegItemDetail)
+
+	code, _, body, _, err := makeRequest[string](router, "GET", "/appreg-item-detail?name=tenant-id/app-id", nil)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 200, code)
+	assert.Contains(t, body, "TestApp")
+	assert.Contains(t, body, "app-id")
+	assert.Contains(t, body, "tenant-id")
+}
+
+func TestRendersAppRegItemDetailNoName(t *testing.T) {
+	handlers := new(Handlers)
+	handlers.AppRegList = []models.CheckAppRegItem{
+		{Name: "tenant-id/app-id", TenantId: "tenant-id", AppId: "app-id", AppObjectId: "obj-id", AppName: "TestApp"},
+	}
+
+	router := http.NewServeMux()
+	router.HandleFunc("GET /appreg-item-detail", handlers.GetAppRegItemDetail)
+
+	code, _, body, _, err := makeRequest[string](router, "GET", "/appreg-item-detail", nil)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 400, code)
+	assert.Contains(t, body, "name is required")
+}
+
+func TestRendersAppRegItemDetailBadName(t *testing.T) {
+	handlers := new(Handlers)
+	handlers.AppRegList = []models.CheckAppRegItem{
+		{Name: "tenant-id/app-id", TenantId: "tenant-id", AppId: "app-id", AppObjectId: "obj-id", AppName: "TestApp"},
+	}
+
+	router := http.NewServeMux()
+	router.HandleFunc("GET /appreg-item-detail", handlers.GetAppRegItemDetail)
+
+	code, _, body, _, err := makeRequest[string](router, "GET", "/appreg-item-detail?name=bad-tenant/bad-app", nil)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 400, code)
+	assert.Contains(t, body, "the provided app registration name is not configured")
 }
