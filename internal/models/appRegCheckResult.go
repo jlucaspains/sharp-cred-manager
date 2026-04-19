@@ -26,7 +26,6 @@ type AppRegCheckResult struct {
 	Name              string                   `json:"name"`
 	AppName           string                   `json:"appName"`
 	AppId             string                   `json:"appId"`
-	TenantId          string                   `json:"tenantId"`
 	AppObjectId       string                   `json:"appObjectId"`
 	IsValid           bool                     `json:"isValid"`
 	ExpirationWarning bool                     `json:"expirationWarning"`
@@ -35,7 +34,6 @@ type AppRegCheckResult struct {
 
 type CheckAppRegItem struct {
 	Name        string `json:"name"`
-	TenantId    string `json:"tenantId"`
 	AppId       string `json:"appId"`
 	AppObjectId string `json:"appObjectId"`
 	AppName     string `json:"appName"`

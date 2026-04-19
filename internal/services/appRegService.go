@@ -16,7 +16,7 @@ import (
 )
 
 // graphHTTPClient is a package-level HTTP client reused across all Graph requests.
-var graphHTTPClient = &http.Client{}
+var graphHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
 // mockGraphAppResult bypasses Graph HTTP calls for unit tests within this package.
 var mockGraphAppResult *graphApplication = nil
@@ -57,7 +57,6 @@ type graphApplicationsResponse struct {
 
 func GetConfigAppRegs() []models.CheckAppRegItem {
 	result := []models.CheckAppRegItem{}
-	tenantId, _ := os.LookupEnv("AZURE_TENANT_ID")
 
 	for i := 1; true; i++ {
 		appId, ok := os.LookupEnv(fmt.Sprintf("APPREGISTRATION_%d", i))
@@ -71,11 +70,8 @@ func GetConfigAppRegs() []models.CheckAppRegItem {
 		}
 
 		result = append(result, models.CheckAppRegItem{
-			Name:        appId,
-			TenantId:    tenantId,
-			AppId:       appId,
-			AppObjectId: "", // Populated later in CheckAppRegStatus
-			AppName:     "", // Populated later in CheckAppRegStatus
+			Name:  appId,
+			AppId: appId,
 		})
 	}
 
@@ -104,7 +100,6 @@ func buildAppRegCheckResult(item models.CheckAppRegItem, app *graphApplication, 
 		Name:        item.Name,
 		AppName:     app.DisplayName,
 		AppId:       item.AppId,
-		TenantId:    item.TenantId,
 		AppObjectId: app.ID,
 		IsValid:     true,
 		Credentials: []models.AppRegCredentialResult{},
@@ -220,10 +215,7 @@ func makeGraphRequest(url string) (*http.Response, error) {
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}

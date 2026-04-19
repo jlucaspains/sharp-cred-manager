@@ -31,10 +31,8 @@ func makeCert(keyId, name string, start, end *string) graphKeyCredential {
 }
 
 var testItem = models.CheckAppRegItem{
-	Name:        "app-id",
-	AppId:       "app-id",
-	AppObjectId: "object-id-1",
-	AppName:     "TestApp",
+	Name:  "app-id",
+	AppId: "app-id",
 }
 
 func TestCheckAppRegStatus_ValidSecret(t *testing.T) {
@@ -156,6 +154,7 @@ func TestCheckAppRegStatus_PopulatesAppNameAndObjectIdFromGraph(t *testing.T) {
 	defer func() { mockGraphAppResult = nil }()
 
 	item := models.CheckAppRegItem{Name: "app-id", AppId: "app-id"}
+
 	result, err := CheckAppRegStatus(item, 30)
 
 	assert.Nil(t, err)
@@ -182,13 +181,11 @@ func TestCheckAppRegStatus_GraphError(t *testing.T) {
 
 func TestGetConfigAppRegs_ValidEntry(t *testing.T) {
 	t.Setenv("APPREGISTRATION_1", "my-app-id")
-	t.Setenv("AZURE_TENANT_ID", "my-tenant")
 
 	items := GetConfigAppRegs()
 
 	assert.Len(t, items, 1)
 	assert.Equal(t, "my-app-id", items[0].Name)
-	assert.Equal(t, "my-tenant", items[0].TenantId)
 	assert.Equal(t, "my-app-id", items[0].AppId)
 	assert.Equal(t, "", items[0].AppObjectId)
 	assert.Equal(t, "", items[0].AppName)

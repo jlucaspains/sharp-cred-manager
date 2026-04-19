@@ -3,6 +3,7 @@ package jobs
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/adhocore/gronx"
@@ -31,14 +32,16 @@ var levels = map[string]Level{
 
 type CheckNotification struct {
 	Name              string
+	Source            string
 	IsValid           bool
 	Messages          []string
 	ExpirationWarning bool
 }
 
 type CheckNotificationGroup struct {
-	Label string
-	Items []CheckNotification
+	Label      string
+	Items      []CheckNotification
+	ShowSource bool
 }
 
 type CheckCredJob struct {
@@ -162,7 +165,7 @@ func (c *CheckCredJob) execute() {
 }
 
 func (c *CheckCredJob) buildCertGroup() CheckNotificationGroup {
-	group := CheckNotificationGroup{Label: "Certificates"}
+	group := CheckNotificationGroup{Label: "Certificates", ShowSource: true}
 	for _, item := range c.certList {
 		checkStatus, err := services.CheckCertStatus(item, c.certWarningDays)
 		if err != nil {
@@ -179,7 +182,7 @@ func (c *CheckCredJob) buildCertGroup() CheckNotificationGroup {
 }
 
 func (c *CheckCredJob) buildSecretGroup() CheckNotificationGroup {
-	group := CheckNotificationGroup{Label: "Secrets"}
+	group := CheckNotificationGroup{Label: "Secrets", ShowSource: true}
 	for _, item := range c.secretList {
 		checkStatus, err := services.CheckSecretStatus(item, c.secretWarningDays)
 		if err != nil {
@@ -196,7 +199,7 @@ func (c *CheckCredJob) buildSecretGroup() CheckNotificationGroup {
 }
 
 func (c *CheckCredJob) buildAppRegGroup() CheckNotificationGroup {
-	group := CheckNotificationGroup{Label: "App Registrations"}
+	group := CheckNotificationGroup{Label: "App Registrations", ShowSource: true}
 	for _, item := range c.appRegList {
 		checkStatus, err := services.CheckAppRegStatus(item, c.appRegWarningDays)
 		if err != nil {
@@ -204,9 +207,11 @@ func (c *CheckCredJob) buildAppRegGroup() CheckNotificationGroup {
 			continue
 		}
 		log.Printf("App registration status for %s: %t", item.Name, checkStatus.IsValid)
-		n := c.getAppRegNotification(checkStatus)
-		if c.shouldNotify(n) {
-			group.Items = append(group.Items, n)
+		for _, cred := range checkStatus.Credentials {
+			n := c.getCredentialNotification(checkStatus.AppName, cred)
+			if c.shouldNotify(n) {
+				group.Items = append(group.Items, n)
+			}
 		}
 	}
 	return group
@@ -217,8 +222,13 @@ func (c *CheckCredJob) shouldNotify(model CheckNotification) bool {
 }
 
 func (c *CheckCredJob) getCertNotification(certificate *models.CertCheckResult) CheckNotification {
+	source := strings.TrimPrefix(certificate.Source, "https://")
+	source = strings.TrimPrefix(source, "http://")
+	source = strings.TrimSuffix(source, ".vault.azure.net")
+
 	result := CheckNotification{
-		Name:              certificate.Hostname,
+		Name:              certificate.DisplayName,
+		Source:            source,
 		IsValid:           certificate.IsValid,
 		ExpirationWarning: certificate.ExpirationWarning,
 		Messages:          certificate.ValidationIssues,
@@ -233,8 +243,11 @@ func (c *CheckCredJob) getCertNotification(certificate *models.CertCheckResult) 
 }
 
 func (c *CheckCredJob) getSecretNotification(secret *models.SecretCheckResult) CheckNotification {
+	source := strings.TrimSuffix(strings.Replace(secret.Source, ".vault.azure.net", "", 1), "/")
+
 	result := CheckNotification{
-		Name:              secret.Name,
+		Name:              secret.DisplayName,
+		Source:            source,
 		IsValid:           secret.IsValid,
 		ExpirationWarning: secret.ExpirationWarning,
 		Messages:          secret.ValidationIssues,
@@ -248,28 +261,24 @@ func (c *CheckCredJob) getSecretNotification(secret *models.SecretCheckResult) C
 	return result
 }
 
-func (c *CheckCredJob) getAppRegNotification(appReg *models.AppRegCheckResult) CheckNotification {
+func (c *CheckCredJob) getCredentialNotification(appName string, cred models.AppRegCredentialResult) CheckNotification {
+	icon := "🔑"
+	if cred.CredentialType == models.AppRegCredentialCertificate {
+		icon = "📜"
+	}
+
 	result := CheckNotification{
-		Name:              appReg.AppName,
-		IsValid:           appReg.IsValid,
-		ExpirationWarning: appReg.ExpirationWarning,
+		Source:            appName,
+		Name:              icon + " " + cred.DisplayName,
+		IsValid:           cred.IsValid,
+		ExpirationWarning: cred.ExpirationWarning,
 		Messages:          []string{},
 	}
 
-	for _, cred := range appReg.Credentials {
-		credType := "Secret"
-		if cred.CredentialType == models.AppRegCredentialCertificate {
-			credType = "Certificate"
-		}
-		label := fmt.Sprintf("%s (%s)", cred.DisplayName, credType)
-
-		if !cred.IsValid {
-			for _, issue := range cred.ValidationIssues {
-				result.Messages = append(result.Messages, fmt.Sprintf("%s: %s", label, issue))
-			}
-		} else if cred.ExpirationWarning {
-			result.Messages = append(result.Messages, fmt.Sprintf("%s: expires in %d days", label, cred.ValidityInDays))
-		}
+	if !cred.IsValid {
+		result.Messages = append(result.Messages, cred.ValidationIssues...)
+	} else if cred.ExpirationWarning {
+		result.Messages = []string{fmt.Sprintf("expires in %d days", cred.ValidityInDays)}
 	}
 
 	return result
