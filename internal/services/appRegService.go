@@ -16,6 +16,11 @@ import (
 	"github.com/jlucaspains/sharp-cred-manager/internal/models"
 )
 
+// graphHTTPClient is a package-level HTTP client with a timeout, reused across all Graph requests.
+var graphHTTPClient = &http.Client{
+	Timeout: 30 * time.Second,
+}
+
 // mockGraphAppResult bypasses Graph HTTP calls for unit tests within this package.
 var mockGraphAppResult *graphApplication = nil
 
@@ -221,15 +226,17 @@ func makeGraphRequest(url string) (*http.Response, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/json")
 
-	client := &http.Client{}
-	return client.Do(req)
+	return graphHTTPClient.Do(req)
 }
 
 func getGraphToken() (string, error) {
