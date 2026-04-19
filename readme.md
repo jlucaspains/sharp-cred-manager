@@ -5,6 +5,8 @@ This project aims to provide a simple tool to monitor TLS certificates and secre
 
 ![Demo frontend image 2](/docs/demo2.png)
 
+![Demo frontend image 3](/docs/demo3.png)
+
 Additionally, the app can be configured to run jobs at a given schedule. The jobs will check the configured websites and secrets and send a message to a Webhook with a summary of their validity.
 
 Teams message:
@@ -19,6 +21,7 @@ Slack message:
 V2 is a new major version that introduces:
 1. **Azure Key Vault secret monitoring** — monitor secrets' expiration and enabled/active status alongside certificates
 2. **Secrets dashboard tab** — the web UI now has a Secrets tab alongside the existing Certificates tab
+3. **App registration dashboard tab** - the web UI now has a App Registrations tab alongside the existing certificates tab
 3. **Breaking Change**: The app was renamed from Sharp Cert Manager to **Sharp Cred Manager** as it now monitors credentials beyond certificates
 
 ### Migrate from v1.x to v2.x
@@ -38,10 +41,16 @@ V2 is a new major version that introduces:
 | `SECRET_WARNING_VALIDITY_DAYS` | Days before expiry to trigger a warning for secrets | 30 |
 | `SECRET_CHECK_INCLUDE_DISABLED` | When using a vault-only URL, include disabled secrets | false |
 | `SECRET_CHECK_REQUIRE_EXPIRE_DATE` | When using a vault-only URL, only monitor secrets that have an expiration date | true |
+| `APPREGISTRATION_1..N` | Azure App Registrations to monitor. Includes app secrets and app certificates. Use the App Id of the registration. | |
+| `APP_REG_WARNING_VALIDITY_DAYS` | Days before expiry to trigger a warning for app registration credentials | 30 |
 
 **Azure Key Vault permissions**
 
-To monitor secrets, the Key Vault Reader role or equivalent is required. The Reader role grants access to list the properties of secrets, but not the value. See [DefaultAzureCredential Class](https://learn.microsoft.com/en-us/dotnet/api/azure.identity.defaultazurecredential?view=azure-dotnet) for the list of possible ways to authenticate. It is not required nor recommended to allow sharp-cred-manager to read secret values.
+To monitor Key Vault secrets, the Key Vault Reader role or equivalent is required. The Reader role grants access to list the properties of secrets, but not the value. See [DefaultAzureCredential Class](https://learn.microsoft.com/en-us/dotnet/api/azure.identity.defaultazurecredential?view=azure-dotnet) for the list of possible ways to authenticate. It is not required nor recommended to allow sharp-cred-manager to read secret values.
+
+**Azure Graph permissions**
+
+To monitor app registrations, the user running the application (managed identity, service principal, or user in AZ CLI) needs read permission to the app registrations you setup to monitor. This permission can be granted a number of ways including granting `Application.Read.All` to the app registration being used (if any) or the `Directory Reader` Directory role. See [DefaultAzureCredential Class](https://learn.microsoft.com/en-us/dotnet/api/azure.identity.defaultazurecredential?view=azure-dotnet) for the list of possible ways to authenticate
 
 # Getting started
 
