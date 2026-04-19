@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/jlucaspains/sharp-cred-manager/internal/models"
 	"github.com/jlucaspains/sharp-cred-manager/internal/services"
@@ -14,12 +15,25 @@ import (
 var indexTemplate *template.Template
 var templatePath string = "frontend"
 
+func shortVaultURL(u string) string {
+	u = strings.TrimPrefix(u, "https://")
+	u = strings.TrimPrefix(u, "http://")
+	if idx := strings.Index(u, "/"); idx >= 0 {
+		u = u[:idx]
+	}
+	u = strings.TrimSuffix(u, ".vault.azure.net")
+	return u
+}
+
 func initTemplates() {
 	if indexTemplate != nil {
 		return
 	}
 
-	indexTemplate = template.Must(template.ParseGlob(fmt.Sprintf("%s/*", templatePath)))
+	funcMap := template.FuncMap{
+		"shortVaultURL": shortVaultURL,
+	}
+	indexTemplate = template.Must(template.New("").Funcs(funcMap).ParseGlob(fmt.Sprintf("%s/*", templatePath)))
 }
 
 func (h Handlers) Index(w http.ResponseWriter, r *http.Request) {
@@ -162,6 +176,78 @@ func (h Handlers) GetSecretItemDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = indexTemplate.ExecuteTemplate(w, "secretItemModal.html", result)
+
+	handleError(w, err)
+}
+
+func (h Handlers) GetAppRegsPanel(w http.ResponseWriter, r *http.Request) {
+	initTemplates()
+
+	err := indexTemplate.ExecuteTemplate(w, "appRegsPanel.html", h.AppRegList)
+
+	handleError(w, err)
+}
+
+func (h Handlers) GetAppRegItem(w http.ResponseWriter, r *http.Request) {
+	initTemplates()
+
+	name, _ := h.getQueryParam(r, "name")
+
+	log.Println("Received get app reg item for name: " + name)
+
+	if name == "" {
+		h.HTML(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	idx := slices.IndexFunc(h.AppRegList, func(a models.CheckAppRegItem) bool { return a.Name == name })
+
+	if idx < 0 {
+		h.HTML(w, http.StatusBadRequest, "the provided app registration name is not configured")
+		return
+	}
+
+	item := h.AppRegList[idx]
+	result, err := services.CheckAppRegStatus(item, h.AppRegWarningValidityDays)
+
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	err = indexTemplate.ExecuteTemplate(w, "appRegItemLoaded.html", result)
+
+	handleError(w, err)
+}
+
+func (h Handlers) GetAppRegItemDetail(w http.ResponseWriter, r *http.Request) {
+	initTemplates()
+
+	name, _ := h.getQueryParam(r, "name")
+
+	log.Println("Received app reg detail message for name: " + name)
+
+	if name == "" {
+		h.HTML(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	idx := slices.IndexFunc(h.AppRegList, func(a models.CheckAppRegItem) bool { return a.Name == name })
+
+	if idx < 0 {
+		h.HTML(w, http.StatusBadRequest, "the provided app registration name is not configured")
+		return
+	}
+
+	item := h.AppRegList[idx]
+	result, err := services.CheckAppRegStatus(item, h.AppRegWarningValidityDays)
+
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	err = indexTemplate.ExecuteTemplate(w, "appRegItemModal.html", result)
 
 	handleError(w, err)
 }

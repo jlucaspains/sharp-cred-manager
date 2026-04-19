@@ -48,10 +48,52 @@ func setupMockSecret(enabled bool, expiresAt time.Time) {
 	})
 }
 
+var appRegList = []models.CheckAppRegItem{
+	{
+		Name:        "app-id",
+		TenantId:    "tenant-id",
+		AppId:       "app-id",
+		AppObjectId: "object-id-1",
+		AppName:     "TestApp",
+	},
+}
+
+func setupMockAppReg(valid bool, warning bool) {
+	cred := models.AppRegCredentialResult{
+		KeyId:             "key-1",
+		DisplayName:       "CI Key",
+		CredentialType:    models.AppRegCredentialSecret,
+		IsValid:           valid,
+		ExpirationWarning: warning,
+		ValidationIssues:  []string{},
+	}
+	if !valid {
+		cred.ValidationIssues = append(cred.ValidationIssues, "Credential is expired")
+	}
+
+	services.SetMockAppRegResult(&models.AppRegCheckResult{
+		Name:              "app-id",
+		AppName:           "TestApp",
+		AppId:             "app-id",
+		TenantId:          "tenant-id",
+		IsValid:           valid,
+		ExpirationWarning: warning,
+		Credentials:       []models.AppRegCredentialResult{cred},
+	})
+}
+
 func TestJobInit(t *testing.T) {
 	job := &CheckCredJob{}
 
-	err := job.Init("* * * * *", "", 1, 1, certList, secretList, &mockNotifier{})
+	err := job.Init(CheckCredJobConfig{
+		Schedule:          "* * * * *",
+		CertWarningDays:   1,
+		SecretWarningDays: 1,
+		AppRegWarningDays: 1,
+		CertList:          certList,
+		SecretList:        secretList,
+		Notifier:          &mockNotifier{},
+	})
 
 	assert.Nil(t, err)
 	assert.Equal(t, "* * * * *", job.cron)
@@ -66,11 +108,16 @@ func TestJobInit(t *testing.T) {
 func TestJobInitDefaultWarningDays(t *testing.T) {
 	job := &CheckCredJob{}
 
-	err := job.Init("* * * * *", "", 0, 0, certList, secretList, &mockNotifier{})
+	err := job.Init(CheckCredJobConfig{
+		Schedule: "* * * * *",
+		CertList: certList,
+		Notifier: &mockNotifier{},
+	})
 
 	assert.Nil(t, err)
 	assert.Equal(t, 30, job.certWarningDays)
 	assert.Equal(t, 30, job.secretWarningDays)
+	assert.Equal(t, 30, job.appRegWarningDays)
 
 	job.ticker.Stop()
 }
@@ -78,11 +125,19 @@ func TestJobInitDefaultWarningDays(t *testing.T) {
 func TestJobInitDistinctWarningDays(t *testing.T) {
 	job := &CheckCredJob{}
 
-	err := job.Init("* * * * *", "", 20, 45, certList, secretList, &mockNotifier{})
+	err := job.Init(CheckCredJobConfig{
+		Schedule:          "* * * * *",
+		CertWarningDays:   20,
+		SecretWarningDays: 45,
+		AppRegWarningDays: 60,
+		CertList:          certList,
+		Notifier:          &mockNotifier{},
+	})
 
 	assert.Nil(t, err)
 	assert.Equal(t, 20, job.certWarningDays)
 	assert.Equal(t, 45, job.secretWarningDays)
+	assert.Equal(t, 60, job.appRegWarningDays)
 
 	job.ticker.Stop()
 }
@@ -90,7 +145,11 @@ func TestJobInitDistinctWarningDays(t *testing.T) {
 func TestJobInitBadCron(t *testing.T) {
 	job := &CheckCredJob{}
 
-	err := job.Init("* * * *", "", 0, 0, certList, secretList, &mockNotifier{})
+	err := job.Init(CheckCredJobConfig{
+		Schedule: "* * * *",
+		CertList: certList,
+		Notifier: &mockNotifier{},
+	})
 
 	assert.Equal(t, "a valid cron schedule is required", err.Error())
 }
@@ -98,7 +157,11 @@ func TestJobInitBadCron(t *testing.T) {
 func TestJobInitBadNotifier(t *testing.T) {
 	job := &CheckCredJob{}
 
-	err := job.Init("* * * * *", "", 0, 0, certList, secretList, nil)
+	err := job.Init(CheckCredJobConfig{
+		Schedule: "* * * * *",
+		CertList: certList,
+		Notifier: nil,
+	})
 
 	assert.Equal(t, "a valid notifier is required", err.Error())
 }
@@ -106,7 +169,11 @@ func TestJobInitBadNotifier(t *testing.T) {
 func TestJobStartStop(t *testing.T) {
 	job := &CheckCredJob{}
 
-	err := job.Init("* * * * *", "", 0, 0, certList, secretList, &mockNotifier{})
+	err := job.Init(CheckCredJobConfig{
+		Schedule: "* * * * *",
+		CertList: certList,
+		Notifier: &mockNotifier{},
+	})
 	assert.Nil(t, err)
 	job.Start()
 	assert.True(t, job.running)
@@ -117,7 +184,11 @@ func TestJobStartStop(t *testing.T) {
 func TestTryExecuteNotDue(t *testing.T) {
 	job := &CheckCredJob{}
 	notifier := &mockNotifier{}
-	job.Init("0 0 1 1 1", "", 0, 0, certList, secretList, &mockNotifier{})
+	job.Init(CheckCredJobConfig{
+		Schedule: "0 0 1 1 1",
+		CertList: certList,
+		Notifier: &mockNotifier{},
+	})
 	job.notifier = notifier
 	job.tryExecute()
 
@@ -127,7 +198,11 @@ func TestTryExecuteNotDue(t *testing.T) {
 func TestTryExecuteDue(t *testing.T) {
 	job := &CheckCredJob{}
 	notifier := &mockNotifier{}
-	job.Init("* * * * *", "", 0, 0, certList, nil, &mockNotifier{})
+	job.Init(CheckCredJobConfig{
+		Schedule: "* * * * *",
+		CertList: certList,
+		Notifier: &mockNotifier{},
+	})
 	job.notifier = notifier
 	job.tryExecute()
 
@@ -137,7 +212,11 @@ func TestTryExecuteDue(t *testing.T) {
 func TestExecuteNow(t *testing.T) {
 	job := &CheckCredJob{}
 	notifier := &mockNotifier{}
-	job.Init("* * * * *", "", 0, 0, certList, nil, &mockNotifier{})
+	job.Init(CheckCredJobConfig{
+		Schedule: "* * * * *",
+		CertList: certList,
+		Notifier: &mockNotifier{},
+	})
 	job.notifier = notifier
 	job.RunNow()
 
@@ -147,7 +226,12 @@ func TestExecuteNow(t *testing.T) {
 func TestTryExecuteDueWithCertWarning(t *testing.T) {
 	job := &CheckCredJob{}
 	notifier := &mockNotifier{}
-	job.Init("* * * * *", "", 10000, 30, certList, nil, &mockNotifier{})
+	job.Init(CheckCredJobConfig{
+		Schedule:        "* * * * *",
+		CertWarningDays: 10000,
+		CertList:        certList,
+		Notifier:        &mockNotifier{},
+	})
 	job.notifier = notifier
 	job.tryExecute()
 
@@ -161,7 +245,11 @@ func TestTryExecuteDueWithSecret(t *testing.T) {
 
 	job := &CheckCredJob{}
 	notifier := &mockNotifier{}
-	job.Init("* * * * *", "", 0, 0, nil, secretList, &mockNotifier{})
+	job.Init(CheckCredJobConfig{
+		Schedule:   "* * * * *",
+		SecretList: secretList,
+		Notifier:   &mockNotifier{},
+	})
 	job.notifier = notifier
 	job.tryExecute()
 
@@ -175,7 +263,50 @@ func TestTryExecuteDueWithSecretWarning(t *testing.T) {
 
 	job := &CheckCredJob{}
 	notifier := &mockNotifier{}
-	job.Init("* * * * *", "", 30, 10000, nil, secretList, &mockNotifier{})
+	job.Init(CheckCredJobConfig{
+		Schedule:          "* * * * *",
+		CertWarningDays:   30,
+		SecretWarningDays: 10000,
+		SecretList:        secretList,
+		Notifier:          &mockNotifier{},
+	})
+	job.notifier = notifier
+	job.tryExecute()
+
+	assert.True(t, notifier.executed)
+}
+
+func TestTryExecuteDueWithAppReg(t *testing.T) {
+	setupMockAppReg(true, false)
+	defer services.SetMockAppRegResult(nil)
+
+	job := &CheckCredJob{}
+	notifier := &mockNotifier{}
+	job.Init(CheckCredJobConfig{
+		Schedule:   "* * * * *",
+		AppRegList: appRegList,
+		Notifier:   &mockNotifier{},
+	})
+	job.notifier = notifier
+	job.tryExecute()
+
+	assert.True(t, notifier.executed)
+}
+
+func TestTryExecuteDueWithAppRegWarning(t *testing.T) {
+	setupMockAppReg(true, true)
+	defer services.SetMockAppRegResult(nil)
+
+	job := &CheckCredJob{}
+	notifier := &mockNotifier{}
+	job.Init(CheckCredJobConfig{
+		Schedule:          "* * * * *",
+		CertWarningDays:   30,
+		SecretWarningDays: 30,
+		AppRegWarningDays: 10000,
+		AppRegList:        appRegList,
+		Notifier:          &mockNotifier{},
+	})
 	job.notifier = notifier
 	job.tryExecute()
 
@@ -184,7 +315,14 @@ func TestTryExecuteDueWithSecretWarning(t *testing.T) {
 
 func TestGetCertNotificationValidWithWarning(t *testing.T) {
 	job := &CheckCredJob{}
-	job.Init("* * * * *", "", 30, 30, certList, nil, &mockNotifier{})
+	job.Init(CheckCredJobConfig{
+		Schedule:          "* * * * *",
+		CertWarningDays:   30,
+		SecretWarningDays: 30,
+		AppRegWarningDays: 30,
+		CertList:          certList,
+		Notifier:          &mockNotifier{},
+	})
 
 	expirationDate := time.Now().AddDate(0, 0, 15)
 	cert := &models.CertCheckResult{
@@ -207,7 +345,14 @@ func TestGetCertNotificationValidWithWarning(t *testing.T) {
 
 func TestGetCertNotificationValidWithoutWarning(t *testing.T) {
 	job := &CheckCredJob{}
-	job.Init("* * * * *", "", 30, 30, certList, nil, &mockNotifier{})
+	job.Init(CheckCredJobConfig{
+		Schedule:          "* * * * *",
+		CertWarningDays:   30,
+		SecretWarningDays: 30,
+		AppRegWarningDays: 30,
+		CertList:          certList,
+		Notifier:          &mockNotifier{},
+	})
 
 	expirationDate := time.Now().AddDate(0, 1, 0)
 	cert := &models.CertCheckResult{
@@ -229,7 +374,14 @@ func TestGetCertNotificationValidWithoutWarning(t *testing.T) {
 
 func TestGetCertNotificationValidWithValidationIssues(t *testing.T) {
 	job := &CheckCredJob{}
-	job.Init("* * * * *", "", 30, 30, certList, nil, &mockNotifier{})
+	job.Init(CheckCredJobConfig{
+		Schedule:          "* * * * *",
+		CertWarningDays:   30,
+		SecretWarningDays: 30,
+		AppRegWarningDays: 30,
+		CertList:          certList,
+		Notifier:          &mockNotifier{},
+	})
 
 	expirationDate := time.Now().AddDate(0, 1, 0)
 	cert := &models.CertCheckResult{
@@ -251,7 +403,14 @@ func TestGetCertNotificationValidWithValidationIssues(t *testing.T) {
 
 func TestGetCertNotificationInvalid(t *testing.T) {
 	job := &CheckCredJob{}
-	job.Init("* * * * *", "", 30, 30, certList, nil, &mockNotifier{})
+	job.Init(CheckCredJobConfig{
+		Schedule:          "* * * * *",
+		CertWarningDays:   30,
+		SecretWarningDays: 30,
+		AppRegWarningDays: 30,
+		CertList:          certList,
+		Notifier:          &mockNotifier{},
+	})
 
 	expirationDate := time.Now().AddDate(0, 0, -5)
 	cert := &models.CertCheckResult{
@@ -272,7 +431,14 @@ func TestGetCertNotificationInvalid(t *testing.T) {
 
 func TestGetSecretNotificationValidWithWarning(t *testing.T) {
 	job := &CheckCredJob{}
-	job.Init("* * * * *", "", 30, 30, nil, secretList, &mockNotifier{})
+	job.Init(CheckCredJobConfig{
+		Schedule:          "* * * * *",
+		CertWarningDays:   30,
+		SecretWarningDays: 30,
+		AppRegWarningDays: 30,
+		SecretList:        secretList,
+		Notifier:          &mockNotifier{},
+	})
 
 	expiresAt := time.Now().AddDate(0, 0, 15)
 	secret := &models.SecretCheckResult{
@@ -297,7 +463,14 @@ func TestGetSecretNotificationValidWithWarning(t *testing.T) {
 
 func TestGetSecretNotificationValidNoExpiry(t *testing.T) {
 	job := &CheckCredJob{}
-	job.Init("* * * * *", "", 30, 30, nil, secretList, &mockNotifier{})
+	job.Init(CheckCredJobConfig{
+		Schedule:          "* * * * *",
+		CertWarningDays:   30,
+		SecretWarningDays: 30,
+		AppRegWarningDays: 30,
+		SecretList:        secretList,
+		Notifier:          &mockNotifier{},
+	})
 
 	secret := &models.SecretCheckResult{
 		Name:             "testfake.vault.azure.net/my-secret",
@@ -316,7 +489,14 @@ func TestGetSecretNotificationValidNoExpiry(t *testing.T) {
 
 func TestGetSecretNotificationInvalid(t *testing.T) {
 	job := &CheckCredJob{}
-	job.Init("* * * * *", "", 30, 30, nil, secretList, &mockNotifier{})
+	job.Init(CheckCredJobConfig{
+		Schedule:          "* * * * *",
+		CertWarningDays:   30,
+		SecretWarningDays: 30,
+		AppRegWarningDays: 30,
+		SecretList:        secretList,
+		Notifier:          &mockNotifier{},
+	})
 
 	secret := &models.SecretCheckResult{
 		Name:             "testfake.vault.azure.net/my-secret",
@@ -333,4 +513,87 @@ func TestGetSecretNotificationInvalid(t *testing.T) {
 	assert.False(t, strings.Contains(strings.Join(result.Messages, " "), "Secret expires in"))
 
 	job.ticker.Stop()
+}
+
+func TestGetAppRegNotificationValid(t *testing.T) {
+	job := &CheckCredJob{}
+	job.Init(CheckCredJobConfig{
+		Schedule:          "* * * * *",
+		CertWarningDays:   30,
+		SecretWarningDays: 30,
+		AppRegWarningDays: 30,
+		AppRegList:        appRegList,
+		Notifier:          &mockNotifier{},
+	})
+
+	end := time.Now().AddDate(0, 0, 90)
+	appReg := &models.AppRegCheckResult{
+		AppName:           "TestApp",
+		IsValid:           true,
+		ExpirationWarning: false,
+		Credentials: []models.AppRegCredentialResult{
+			{DisplayName: "CI Key", CredentialType: models.AppRegCredentialSecret, IsValid: true, HasExpiration: true, ValidityInDays: 90, EndDateTime: &end},
+		},
+	}
+
+	result := job.getAppRegNotification(appReg)
+
+	assert.True(t, result.IsValid)
+	assert.Equal(t, "TestApp", result.Name)
+	assert.Empty(t, result.Messages)
+}
+
+func TestGetAppRegNotificationExpiredCredential(t *testing.T) {
+	job := &CheckCredJob{}
+	job.Init(CheckCredJobConfig{
+		Schedule:          "* * * * *",
+		CertWarningDays:   30,
+		SecretWarningDays: 30,
+		AppRegWarningDays: 30,
+		AppRegList:        appRegList,
+		Notifier:          &mockNotifier{},
+	})
+
+	appReg := &models.AppRegCheckResult{
+		AppName: "TestApp",
+		IsValid: false,
+		Credentials: []models.AppRegCredentialResult{
+			{DisplayName: "Old Key", CredentialType: models.AppRegCredentialSecret, IsValid: false, ValidationIssues: []string{"Credential is expired"}},
+		},
+	}
+
+	result := job.getAppRegNotification(appReg)
+
+	assert.False(t, result.IsValid)
+	assert.Equal(t, 1, len(result.Messages))
+	assert.Contains(t, result.Messages[0], "Old Key")
+	assert.Contains(t, result.Messages[0], "Credential is expired")
+}
+
+func TestGetAppRegNotificationWarningCredential(t *testing.T) {
+	job := &CheckCredJob{}
+	job.Init(CheckCredJobConfig{
+		Schedule:          "* * * * *",
+		CertWarningDays:   30,
+		SecretWarningDays: 30,
+		AppRegWarningDays: 30,
+		AppRegList:        appRegList,
+		Notifier:          &mockNotifier{},
+	})
+
+	appReg := &models.AppRegCheckResult{
+		AppName:           "TestApp",
+		IsValid:           true,
+		ExpirationWarning: true,
+		Credentials: []models.AppRegCredentialResult{
+			{DisplayName: "Expiring Key", CredentialType: models.AppRegCredentialCertificate, IsValid: true, ExpirationWarning: true, ValidityInDays: 10},
+		},
+	}
+
+	result := job.getAppRegNotification(appReg)
+
+	assert.True(t, result.IsValid)
+	assert.Equal(t, 1, len(result.Messages))
+	assert.Contains(t, result.Messages[0], "Expiring Key")
+	assert.Contains(t, result.Messages[0], "expires in 10 days")
 }
