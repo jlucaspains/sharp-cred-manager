@@ -120,7 +120,7 @@ func TestSlackWebHookNotifierWithData(t *testing.T) {
 		{Label: "Certificates", Items: []CheckNotification{{Name: "host1", IsValid: true}}},
 	})
 	assert.Nil(t, err)
-	assert.Equal(t, "{\n\"text\": \"Sharp Cred Manager Summary\\nThe following credentials were checked on today\",\n\"blocks\": [\n{\n\"type\": \"section\",\n\"text\": {\n\"type\": \"mrkdwn\",\n\"text\": \"Sharp Cred Manager Summary\\nThe following credentials were checked on today\"\n}\n},\n{\n\"type\": \"divider\"\n},\n{\n\"type\": \"section\",\n\"text\": {\n\"type\": \"mrkdwn\",\n\"text\": \"*Certificates*\"\n}\n},\n{\n\"type\": \"section\",\n\"text\": {\n\"type\": \"mrkdwn\",\n\"text\": \":white_check_mark:\\t*host1*\\n\"\n}\n},\n{\n\"type\": \"divider\"\n}\n]\n}", result)
+	assert.Equal(t, "{\n\"text\": \"Sharp Cred Manager Summary\\nThe following credentials were checked on today\",\n\"blocks\": [\n{\n\"type\": \"section\",\n\"text\": {\n\"type\": \"mrkdwn\",\n\"text\": \"Sharp Cred Manager Summary\\nThe following credentials were checked on today\"\n}\n},\n{\n\"type\": \"divider\"\n},\n{\n\"type\": \"section\",\n\"text\": {\n\"type\": \"mrkdwn\",\n\"text\": \"*Certificates*\"\n}\n},\n{\n\"type\": \"section\",\n\"text\": {\n\"type\": \"mrkdwn\",\n\"text\": \":white_check_mark:\\t* / host1*\\n\"\n}\n},\n{\n\"type\": \"divider\"\n}\n]\n}", result)
 }
 
 func TestSlackWebHookNotifierWithNotificationUrl(t *testing.T) {
@@ -144,7 +144,7 @@ func TestSlackWebHookNotifierWithNotificationUrl(t *testing.T) {
 		{Label: "Certificates", Items: []CheckNotification{{Name: "host1", IsValid: true}}},
 	})
 	assert.Nil(t, err)
-	assert.Equal(t, "{\n\"text\": \"Sharp Cred Manager Summary\\nThe following credentials were checked on today\",\n\"blocks\": [\n{\n\"type\": \"section\",\n\"text\": {\n\"type\": \"mrkdwn\",\n\"text\": \"Sharp Cred Manager Summary\\nThe following credentials were checked on today\"\n}\n},\n{\n\"type\": \"divider\"\n},\n{\n\"type\": \"section\",\n\"text\": {\n\"type\": \"mrkdwn\",\n\"text\": \"*Certificates*\"\n}\n},\n{\n\"type\": \"section\",\n\"text\": {\n\"type\": \"mrkdwn\",\n\"text\": \":white_check_mark:\\t*host1*\\n\"\n}\n},\n{\n\"type\": \"divider\"\n},\n{\n\"type\": \"actions\",\n\"elements\": [\n{\n\"type\": \"button\",\n\"text\": {\n\"type\": \"plain_text\",\n\"text\": \"View details\",\n\"emoji\": true\n},\n\"value\": \"click_me_123\",\n\"url\": \"https://example.com\"\n}\n]\n}\n]\n}", result)
+	assert.Equal(t, "{\n\"text\": \"Sharp Cred Manager Summary\\nThe following credentials were checked on today\",\n\"blocks\": [\n{\n\"type\": \"section\",\n\"text\": {\n\"type\": \"mrkdwn\",\n\"text\": \"Sharp Cred Manager Summary\\nThe following credentials were checked on today\"\n}\n},\n{\n\"type\": \"divider\"\n},\n{\n\"type\": \"section\",\n\"text\": {\n\"type\": \"mrkdwn\",\n\"text\": \"*Certificates*\"\n}\n},\n{\n\"type\": \"section\",\n\"text\": {\n\"type\": \"mrkdwn\",\n\"text\": \":white_check_mark:\\t* / host1*\\n\"\n}\n},\n{\n\"type\": \"divider\"\n},\n{\n\"type\": \"actions\",\n\"elements\": [\n{\n\"type\": \"button\",\n\"text\": {\n\"type\": \"plain_text\",\n\"text\": \"View details\",\n\"emoji\": true\n},\n\"value\": \"click_me_123\",\n\"url\": \"https://example.com\"\n}\n]\n}\n]\n}", result)
 }
 
 func TestWebHookNotifierBadResponseCode(t *testing.T) {
