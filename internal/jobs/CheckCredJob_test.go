@@ -51,7 +51,6 @@ func setupMockSecret(enabled bool, expiresAt time.Time) {
 var appRegList = []models.CheckAppRegItem{
 	{
 		Name:        "app-id",
-		TenantId:    "tenant-id",
 		AppId:       "app-id",
 		AppObjectId: "object-id-1",
 		AppName:     "TestApp",
@@ -75,7 +74,6 @@ func setupMockAppReg(valid bool, warning bool) {
 		Name:              "app-id",
 		AppName:           "TestApp",
 		AppId:             "app-id",
-		TenantId:          "tenant-id",
 		IsValid:           valid,
 		ExpirationWarning: warning,
 		Credentials:       []models.AppRegCredentialResult{cred},
