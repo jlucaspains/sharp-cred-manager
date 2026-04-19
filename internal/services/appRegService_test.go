@@ -151,6 +151,19 @@ func TestCheckAppRegStatus_InvalidSecretInvalidatesApp(t *testing.T) {
 	assert.False(t, result.Credentials[1].IsValid)
 }
 
+func TestCheckAppRegStatus_PopulatesAppNameAndObjectIdFromGraph(t *testing.T) {
+	end := makeTimePtr(time.Now().UTC().Add(90 * 24 * time.Hour))
+	mockGraphAppResult = makeGraphApp([]graphPasswordCredential{makeSecret("key-1", "CI Key", nil, end)}, nil)
+	defer func() { mockGraphAppResult = nil }()
+
+	item := models.CheckAppRegItem{Name: "tenant-id/app-id", TenantId: "tenant-id", AppId: "app-id"}
+	result, err := CheckAppRegStatus(item, 30)
+
+	assert.Nil(t, err)
+	assert.Equal(t, "TestApp", result.AppName)
+	assert.Equal(t, "object-id-1", result.AppObjectId)
+}
+
 func TestCheckAppRegStatus_EmptyItem(t *testing.T) {
 	item := models.CheckAppRegItem{}
 
@@ -171,30 +184,18 @@ func TestCheckAppRegStatus_GraphError(t *testing.T) {
 func TestGetConfigAppRegs_ValidEntry(t *testing.T) {
 	t.Setenv("APPREGISTRATION_1", "my-tenant/my-app-id")
 
-	mockGraphAppResult = &graphApplication{ID: "obj-id", DisplayName: "MyApp"}
-	defer func() { mockGraphAppResult = nil }()
-
 	items := GetConfigAppRegs()
 
 	assert.Len(t, items, 1)
 	assert.Equal(t, "my-tenant/my-app-id", items[0].Name)
 	assert.Equal(t, "my-tenant", items[0].TenantId)
 	assert.Equal(t, "my-app-id", items[0].AppId)
-	assert.Equal(t, "obj-id", items[0].AppObjectId)
-	assert.Equal(t, "MyApp", items[0].AppName)
+	assert.Equal(t, "", items[0].AppObjectId)
+	assert.Equal(t, "", items[0].AppName)
 }
 
 func TestGetConfigAppRegs_InvalidFormat(t *testing.T) {
 	t.Setenv("APPREGISTRATION_1", "no-slash-here")
-
-	items := GetConfigAppRegs()
-
-	assert.Len(t, items, 0)
-}
-
-func TestGetConfigAppRegs_GraphError(t *testing.T) {
-	t.Setenv("APPREGISTRATION_1", "my-tenant/my-app-id")
-	mockGraphAppResult = nil
 
 	items := GetConfigAppRegs()
 
@@ -210,9 +211,6 @@ func TestGetConfigAppRegs_NoEnvVars(t *testing.T) {
 func TestGetConfigAppRegs_MultipleEntries(t *testing.T) {
 	t.Setenv("APPREGISTRATION_1", "tenant-a/app-1")
 	t.Setenv("APPREGISTRATION_2", "tenant-b/app-2")
-
-	mockGraphAppResult = &graphApplication{ID: "obj-id", DisplayName: "SomeApp"}
-	defer func() { mockGraphAppResult = nil }()
 
 	items := GetConfigAppRegs()
 

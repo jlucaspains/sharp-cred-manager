@@ -71,18 +71,12 @@ func GetConfigAppRegs() []models.CheckAppRegItem {
 		tenantId, appId := parts[0], parts[1]
 		name := tenantId + "/" + appId
 
-		app, err := getApplicationByAppId(appId)
-		if err != nil {
-			log.Printf("Error resolving app registration %s: %s", name, err)
-			continue
-		}
-
 		result = append(result, models.CheckAppRegItem{
 			Name:        name,
 			TenantId:    tenantId,
 			AppId:       appId,
-			AppObjectId: app.ID,
-			AppName:     app.DisplayName,
+			AppObjectId: "", // Populated later in CheckAppRegStatus
+			AppName:     "", // Populated later in CheckAppRegStatus
 		})
 	}
 
@@ -98,7 +92,7 @@ func CheckAppRegStatus(item models.CheckAppRegItem, warningDays int) (*models.Ap
 		return nil, errors.New("name and appId are required")
 	}
 
-	app, err := getApplicationByObjectId(item.AppObjectId)
+	app, err := getApplicationByAppId(item.AppId)
 	if err != nil {
 		return nil, err
 	}
@@ -109,10 +103,10 @@ func CheckAppRegStatus(item models.CheckAppRegItem, warningDays int) (*models.Ap
 func buildAppRegCheckResult(item models.CheckAppRegItem, app *graphApplication, warningDays int) *models.AppRegCheckResult {
 	result := &models.AppRegCheckResult{
 		Name:        item.Name,
-		AppName:     item.AppName,
+		AppName:     app.DisplayName,
 		AppId:       item.AppId,
 		TenantId:    item.TenantId,
-		AppObjectId: item.AppObjectId,
+		AppObjectId: app.ID,
 		IsValid:     true,
 		Credentials: []models.AppRegCredentialResult{},
 	}
@@ -219,34 +213,6 @@ func getApplicationByAppId(appId string) (*graphApplication, error) {
 	}
 
 	return &result.Value[0], nil
-}
-
-func getApplicationByObjectId(objectId string) (*graphApplication, error) {
-	if mockGraphAppResult != nil {
-		return mockGraphAppResult, nil
-	}
-
-	url := fmt.Sprintf(
-		"https://graph.microsoft.com/v1.0/applications/%s?$select=id,displayName,passwordCredentials,keyCredentials",
-		objectId,
-	)
-
-	resp, err := makeGraphRequest(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Graph API returned status %d for objectId %s", resp.StatusCode, objectId)
-	}
-
-	var result graphApplication
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
-	}
-
-	return &result, nil
 }
 
 func makeGraphRequest(url string) (*http.Response, error) {

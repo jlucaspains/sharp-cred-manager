@@ -56,46 +56,58 @@ type CheckCredJob struct {
 	appRegWarningDays int
 }
 
-func (c *CheckCredJob) Init(schedule string, level string, certWarningDays int, secretWarningDays int, appRegWarningDays int, certList []models.CheckCertItem, secretList []models.CheckSecretItem, appRegList []models.CheckAppRegItem, notifier Notifier) error {
+type CheckCredJobConfig struct {
+	Schedule          string
+	Level             string
+	CertWarningDays   int
+	SecretWarningDays int
+	AppRegWarningDays int
+	CertList          []models.CheckCertItem
+	SecretList        []models.CheckSecretItem
+	AppRegList        []models.CheckAppRegItem
+	Notifier          Notifier
+}
+
+func (c *CheckCredJob) Init(config CheckCredJobConfig) error {
 	c.gron = gronx.New()
 
-	if schedule == "" || !c.gron.IsValid(schedule) {
+	if config.Schedule == "" || !c.gron.IsValid(config.Schedule) {
 		log.Printf("A valid cron schedule is required in the format e.g.: * * * * *")
 		return fmt.Errorf("a valid cron schedule is required")
 	}
 
-	if notifier == nil || !notifier.IsReady() {
+	if config.Notifier == nil || !config.Notifier.IsReady() {
 		log.Printf("A valid notifier is required")
 		return fmt.Errorf("a valid notifier is required")
 	}
 
-	levelValue, ok := levels[level]
+	levelValue, ok := levels[config.Level]
 	if !ok {
 		levelValue = Warning
 	}
 
-	if certWarningDays <= 0 {
-		certWarningDays = 30
+	if config.CertWarningDays <= 0 {
+		config.CertWarningDays = 30
 	}
 
-	if secretWarningDays <= 0 {
-		secretWarningDays = 30
+	if config.SecretWarningDays <= 0 {
+		config.SecretWarningDays = 30
 	}
 
-	if appRegWarningDays <= 0 {
-		appRegWarningDays = 30
+	if config.AppRegWarningDays <= 0 {
+		config.AppRegWarningDays = 30
 	}
 
-	c.cron = schedule
-	c.certList = certList
-	c.secretList = secretList
-	c.appRegList = appRegList
+	c.cron = config.Schedule
+	c.certList = config.CertList
+	c.secretList = config.SecretList
+	c.appRegList = config.AppRegList
 	c.ticker = time.NewTicker(time.Minute)
-	c.notifier = notifier
+	c.notifier = config.Notifier
 	c.level = levelValue
-	c.certWarningDays = certWarningDays
-	c.secretWarningDays = secretWarningDays
-	c.appRegWarningDays = appRegWarningDays
+	c.certWarningDays = config.CertWarningDays
+	c.secretWarningDays = config.SecretWarningDays
+	c.appRegWarningDays = config.AppRegWarningDays
 
 	return nil
 }
