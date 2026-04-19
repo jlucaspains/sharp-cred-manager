@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/jlucaspains/sharp-cred-manager/internal/models"
 	"github.com/jlucaspains/sharp-cred-manager/internal/services"
@@ -14,12 +15,25 @@ import (
 var indexTemplate *template.Template
 var templatePath string = "frontend"
 
+func shortVaultURL(u string) string {
+	u = strings.TrimPrefix(u, "https://")
+	u = strings.TrimPrefix(u, "http://")
+	if idx := strings.Index(u, "/"); idx >= 0 {
+		u = u[:idx]
+	}
+	u = strings.TrimSuffix(u, ".vault.azure.net")
+	return u
+}
+
 func initTemplates() {
 	if indexTemplate != nil {
 		return
 	}
 
-	indexTemplate = template.Must(template.ParseGlob(fmt.Sprintf("%s/*", templatePath)))
+	funcMap := template.FuncMap{
+		"shortVaultURL": shortVaultURL,
+	}
+	indexTemplate = template.Must(template.New("").Funcs(funcMap).ParseGlob(fmt.Sprintf("%s/*", templatePath)))
 }
 
 func (h Handlers) Index(w http.ResponseWriter, r *http.Request) {

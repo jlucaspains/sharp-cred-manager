@@ -10,6 +10,8 @@ type OtherCert struct {
 
 type CertCheckResult struct {
 	Hostname          string      `json:"hostname"`
+	DisplayName       string      `json:"displayName"`
+	Source            string      `json:"source"`
 	Issuer            string      `json:"issuer"`
 	Signature         string      `json:"signature"`
 	CertStartDate     time.Time   `json:"certStartDate"`

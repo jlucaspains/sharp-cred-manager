@@ -94,6 +94,8 @@ func checkCertByUrlStatus(name string, url string, expirationWarningDays int) (*
 	}
 
 	result := prepareResult(resp.TLS.PeerCertificates[0], resp.TLS.PeerCertificates[1:], name, expirationWarningDays, false)
+	result.Source = "URL"
+	result.DisplayName = name
 
 	return result, nil
 }
@@ -116,6 +118,8 @@ func checkAzureCertStatus(name string, rawUrl string, expirationWarningDays int)
 	}
 
 	result := prepareResult(cert, []*x509.Certificate{}, name, expirationWarningDays, true)
+	result.Source = keyVaultUrl
+	result.DisplayName = certName
 
 	return result, nil
 }

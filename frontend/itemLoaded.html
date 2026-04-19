@@ -15,17 +15,16 @@
             </svg>
             {{end}}
         </div>
-        <h2 class="text-white text-lg font-medium">{{ .Hostname }}</h2>
+        <h2 class="text-white text-lg font-medium">{{ .DisplayName }}</h2>
     </div>
     <div class="flex flex-col justify-between flex-grow">
-        <p transition:fade class="leading-relaxed text-base text-white">
-            Issuer: <span class="font-bold">{{.Issuer}}</span>
-        </p>
-        <p transition:fade class="leading-relaxed text-base text-white">
-            Signature: <span class="font-bold">{{.Signature}}</span>
-        </p>
-        <p transition:fade class="leading-relaxed text-base text-white">
-            Validity: <span class="font-bold">{{.ValidityInDays}} days</span>
-        </p>
+        <div class="flex items-center leading-relaxed text-base text-white">
+            <span>Source</span>
+            <span class="font-bold ml-auto">{{ shortVaultURL .Source }}</span>
+        </div>
+        <div class="flex items-center leading-relaxed text-base text-white">
+            <span>Validity</span>
+            <span class="font-bold ml-auto">{{if not .IsValid}}Expired{{else if .ExpirationWarning}}{{.ValidityInDays}}d ⚠{{else}}{{.ValidityInDays}}d{{end}}</span>
+        </div>
     </div>
 </div>
