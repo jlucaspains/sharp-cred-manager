@@ -10,7 +10,7 @@ import (
 
 var appRegList = []models.CheckAppRegItem{
 	{
-		Name:        "tenant-id/app-id",
+		Name:        "app-id",
 		TenantId:    "tenant-id",
 		AppId:       "app-id",
 		AppObjectId: "object-id-1",
@@ -53,7 +53,7 @@ func TestCheckAppRegStatusInvalidName(t *testing.T) {
 	router := http.NewServeMux()
 	router.HandleFunc("GET /check-appreg", handlers.CheckAppRegStatus)
 
-	code, body, _, _, err := makeRequest[models.ErrorResult](router, "GET", "/check-appreg?name=unknown-tenant/unknown-app", nil)
+	code, body, _, _, err := makeRequest[models.ErrorResult](router, "GET", "/check-appreg?name=unknown-app-id", nil)
 
 	assert.Nil(t, err)
 	assert.Equal(t, 400, code)

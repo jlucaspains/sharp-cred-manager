@@ -5,11 +5,11 @@ The app currently monitors TLS certificates and Azure Key Vault secrets. We want
 
 ## Key Decisions
 - **Validity** = `endDateTime` is not in the past and not within warning threshold; `startDateTime` is not in the future. No "enabled" concept on either credential type.
-- **Config**: `APPREGISTRATION_N=<tenantId>/<appId>` — one entry per app registration; all client secrets **and** certificates on that registration are monitored automatically.
+- **Config**: `APPREGISTRATION_N=<appId>` — one entry per app registration; all client secrets **and** certificates on that registration are monitored automatically. The tenant is derived from `AZURE_TENANT_ID` (single-tenant only). Multi-tenant setups are not supported.
 - **Warning threshold**: New `APP_REG_WARNING_VALIDITY_DAYS` env var (default: 30). Kept separate from `SECRET_WARNING_VALIDITY_DAYS`.
 - **API**: Microsoft Graph API via direct HTTP calls using a bearer token obtained from `azidentity.NewDefaultAzureCredential()` + `azcore/policy`. The `msgraph-sdk-go` SDK was intentionally skipped to avoid a large transitive dependency tree; `azcore` is already a direct dependency.
 - **Required Graph permission**: `Application.Read.All` (application permission in Entra ID).
-- **Discovery**: `GetConfigAppRegs()` calls Graph at startup to resolve each app's Object ID and display name, returning one `CheckAppRegItem` per app registration. Individual credentials are resolved on demand in `CheckAppRegStatus`.
+- **Discovery**: `GetConfigAppRegs()` prepares the app registrations for load, returning one `CheckAppRegItem` per app registration. Individual credentials, the app name, and object id are resolved on demand in `CheckAppRegStatus`.
 - **Data model**: One `AppRegCheckResult` per app registration, containing a `[]AppRegCredentialResult` — one entry per secret or certificate. The top-level `IsValid` and `ExpirationWarning` fields reflect the worst state across all credentials.
 - **UI**: One card per app registration (not per credential). The card body lists all credentials with their type and expiry. Clicking opens a modal with full per-credential details.
 - **Job**: Extend `CheckCredJob` with `appRegList` and `appRegWarningDays`; add an "App Registrations" `CheckNotificationGroup`. Each app registration produces one `CheckNotification`; issues from individual credentials appear as separate message lines.
@@ -18,12 +18,12 @@ The app currently monitors TLS certificates and Azure Key Vault secrets. We want
 
 ### New Data Flow
 ```
-APPREGISTRATION_N env var (tenantId/appId)
+APPREGISTRATION_N env var (appId) + AZURE_TENANT_ID env var
     → GetConfigAppRegs() (appRegService.go)
-        → Graph API: GET /applications?$filter=appId eq '{appId}'
-        → resolve ObjectId + DisplayName → CheckAppRegItem (one per app)
+        → TenantId populated from AZURE_TENANT_ID (display only)
+        → CheckAppRegItem (one per app)
     → CheckAppRegStatus(item, warningDays) → AppRegCheckResult
-        → Graph API: GET /applications/{objectId}
+        → Graph API: GET /applications?$filter=appId eq '{appId}'
             → iterate passwordCredentials → AppRegCredentialResult (type: Secret)
             → iterate keyCredentials      → AppRegCredentialResult (type: Certificate)
         → top-level IsValid = all credentials valid
@@ -160,7 +160,7 @@ Icon and row colour logic:
 
 - Added `github.com/Azure/azure-sdk-for-go/sdk/azcore` as a direct dependency (promoted from indirect); no new SDK required
 - Create `internal/services/appRegService.go`:
-  - `GetConfigAppRegs() []models.CheckAppRegItem`: reads `APPREGISTRATION_N` env vars, parses `tenantId/appId`, calls `GET /applications?$filter=appId eq '{appId}'` to resolve ObjectId and DisplayName; returns one `CheckAppRegItem` per app
+  - `GetConfigAppRegs() []models.CheckAppRegItem`: reads `APPREGISTRATION_N` env vars (each value is just an `appId`), populates `TenantId` from `AZURE_TENANT_ID` for display; returns one `CheckAppRegItem` per app
   - `CheckAppRegStatus(item models.CheckAppRegItem, warningDays int) (*models.AppRegCheckResult, error)`: calls `GET /applications/{objectId}` to fetch both `passwordCredentials` and `keyCredentials`; validates each; aggregates top-level `IsValid` and `ExpirationWarning`
   - Validity rules per credential: `endDateTime` past → invalid ("expired"); `startDateTime` in future → invalid ("not yet active"); `endDateTime` within `warningDays` → `ExpirationWarning=true`; no `endDateTime` → valid with `HasExpiration=false`
   - Mock vars `mockAppRegResult *models.AppRegCheckResult` and `mockAppRegListResult []models.CheckAppRegItem` for testability
@@ -219,7 +219,7 @@ Icon and row colour logic:
 
 - Update `readme.md`:
   - Add new env vars to the table:
-    - `APPREGISTRATION_1..N` — `<tenantId>/<appId>` pairs; all client secrets and certificates on each app registration are monitored
+    - `APPREGISTRATION_1..N` — `<appId>` values; all client secrets and certificates on each app registration are monitored. Tenant is derived from `AZURE_TENANT_ID`.
     - `APP_REG_WARNING_VALIDITY_DAYS` — days before expiry to trigger a warning (default: 30)
   - Add an "App Registration Monitoring" section explaining required Graph API permission (`Application.Read.All`), configuration format, and that both secrets and certificates are tracked
   - Update Features checklist to include App Registration credential monitoring

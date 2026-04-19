@@ -31,8 +31,7 @@ func makeCert(keyId, name string, start, end *string) graphKeyCredential {
 }
 
 var testItem = models.CheckAppRegItem{
-	Name:        "tenant-id/app-id",
-	TenantId:    "tenant-id",
+	Name:        "app-id",
 	AppId:       "app-id",
 	AppObjectId: "object-id-1",
 	AppName:     "TestApp",
@@ -156,7 +155,7 @@ func TestCheckAppRegStatus_PopulatesAppNameAndObjectIdFromGraph(t *testing.T) {
 	mockGraphAppResult = makeGraphApp([]graphPasswordCredential{makeSecret("key-1", "CI Key", nil, end)}, nil)
 	defer func() { mockGraphAppResult = nil }()
 
-	item := models.CheckAppRegItem{Name: "tenant-id/app-id", TenantId: "tenant-id", AppId: "app-id"}
+	item := models.CheckAppRegItem{Name: "app-id", AppId: "app-id"}
 	result, err := CheckAppRegStatus(item, 30)
 
 	assert.Nil(t, err)
@@ -182,24 +181,17 @@ func TestCheckAppRegStatus_GraphError(t *testing.T) {
 }
 
 func TestGetConfigAppRegs_ValidEntry(t *testing.T) {
-	t.Setenv("APPREGISTRATION_1", "my-tenant/my-app-id")
+	t.Setenv("APPREGISTRATION_1", "my-app-id")
+	t.Setenv("AZURE_TENANT_ID", "my-tenant")
 
 	items := GetConfigAppRegs()
 
 	assert.Len(t, items, 1)
-	assert.Equal(t, "my-tenant/my-app-id", items[0].Name)
+	assert.Equal(t, "my-app-id", items[0].Name)
 	assert.Equal(t, "my-tenant", items[0].TenantId)
 	assert.Equal(t, "my-app-id", items[0].AppId)
 	assert.Equal(t, "", items[0].AppObjectId)
 	assert.Equal(t, "", items[0].AppName)
-}
-
-func TestGetConfigAppRegs_InvalidFormat(t *testing.T) {
-	t.Setenv("APPREGISTRATION_1", "no-slash-here")
-
-	items := GetConfigAppRegs()
-
-	assert.Len(t, items, 0)
 }
 
 func TestGetConfigAppRegs_NoEnvVars(t *testing.T) {
@@ -209,8 +201,8 @@ func TestGetConfigAppRegs_NoEnvVars(t *testing.T) {
 }
 
 func TestGetConfigAppRegs_MultipleEntries(t *testing.T) {
-	t.Setenv("APPREGISTRATION_1", "tenant-a/app-1")
-	t.Setenv("APPREGISTRATION_2", "tenant-b/app-2")
+	t.Setenv("APPREGISTRATION_1", "app-1")
+	t.Setenv("APPREGISTRATION_2", "app-2")
 
 	items := GetConfigAppRegs()
 

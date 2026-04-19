@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -58,24 +57,21 @@ type graphApplicationsResponse struct {
 
 func GetConfigAppRegs() []models.CheckAppRegItem {
 	result := []models.CheckAppRegItem{}
+	tenantId, _ := os.LookupEnv("AZURE_TENANT_ID")
 
 	for i := 1; true; i++ {
-		rawVal, ok := os.LookupEnv(fmt.Sprintf("APPREGISTRATION_%d", i))
+		appId, ok := os.LookupEnv(fmt.Sprintf("APPREGISTRATION_%d", i))
 		if !ok {
 			break
 		}
 
-		parts := strings.SplitN(rawVal, "/", 2)
-		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-			log.Printf("Invalid APPREGISTRATION_%d value: %q (expected tenantId/appId)", i, rawVal)
+		if appId == "" {
+			log.Printf("Invalid APPREGISTRATION_%d value: empty appId", i)
 			continue
 		}
 
-		tenantId, appId := parts[0], parts[1]
-		name := tenantId + "/" + appId
-
 		result = append(result, models.CheckAppRegItem{
-			Name:        name,
+			Name:        appId,
 			TenantId:    tenantId,
 			AppId:       appId,
 			AppObjectId: "", // Populated later in CheckAppRegStatus

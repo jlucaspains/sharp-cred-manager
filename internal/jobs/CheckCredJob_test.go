@@ -50,7 +50,7 @@ func setupMockSecret(enabled bool, expiresAt time.Time) {
 
 var appRegList = []models.CheckAppRegItem{
 	{
-		Name:        "tenant-id/app-id",
+		Name:        "app-id",
 		TenantId:    "tenant-id",
 		AppId:       "app-id",
 		AppObjectId: "object-id-1",
@@ -72,7 +72,7 @@ func setupMockAppReg(valid bool, warning bool) {
 	}
 
 	services.SetMockAppRegResult(&models.AppRegCheckResult{
-		Name:              "tenant-id/app-id",
+		Name:              "app-id",
 		AppName:           "TestApp",
 		AppId:             "app-id",
 		TenantId:          "tenant-id",
