@@ -51,7 +51,6 @@ func setupMockSecret(enabled bool, expiresAt time.Time) {
 var appRegList = []models.CheckAppRegItem{
 	{
 		Name:        "app-id",
-		TenantId:    "tenant-id",
 		AppId:       "app-id",
 		AppObjectId: "object-id-1",
 		AppName:     "TestApp",
@@ -75,7 +74,6 @@ func setupMockAppReg(valid bool, warning bool) {
 		Name:              "app-id",
 		AppName:           "TestApp",
 		AppId:             "app-id",
-		TenantId:          "tenant-id",
 		IsValid:           valid,
 		ExpirationWarning: warning,
 		Credentials:       []models.AppRegCredentialResult{cred},
@@ -327,6 +325,7 @@ func TestGetCertNotificationValidWithWarning(t *testing.T) {
 	expirationDate := time.Now().AddDate(0, 0, 15)
 	cert := &models.CertCheckResult{
 		Hostname:          "test.example.com",
+		DisplayName:       "test.example.com",
 		IsValid:           true,
 		ExpirationWarning: true,
 		CertEndDate:       expirationDate,
@@ -357,6 +356,7 @@ func TestGetCertNotificationValidWithoutWarning(t *testing.T) {
 	expirationDate := time.Now().AddDate(0, 1, 0)
 	cert := &models.CertCheckResult{
 		Hostname:          "test.example.com",
+		DisplayName:       "test.example.com",
 		IsValid:           true,
 		ExpirationWarning: false,
 		CertEndDate:       expirationDate,
@@ -443,6 +443,8 @@ func TestGetSecretNotificationValidWithWarning(t *testing.T) {
 	expiresAt := time.Now().AddDate(0, 0, 15)
 	secret := &models.SecretCheckResult{
 		Name:              "testfake.vault.azure.net/my-secret",
+		DisplayName:       "my-secret",
+		Source:            "testfake.vault.azure.net/",
 		IsValid:           true,
 		ExpirationWarning: true,
 		ExpiresOn:         &expiresAt,
@@ -453,7 +455,8 @@ func TestGetSecretNotificationValidWithWarning(t *testing.T) {
 
 	assert.True(t, result.IsValid)
 	assert.True(t, result.ExpirationWarning)
-	assert.Equal(t, "testfake.vault.azure.net/my-secret", result.Name)
+	assert.Equal(t, "my-secret", result.Name)
+	assert.Equal(t, "testfake", result.Source)
 	assert.True(t, len(result.Messages) > 0)
 	assert.True(t, strings.Contains(result.Messages[0], "Secret expires in"))
 	assert.True(t, strings.Contains(result.Messages[0], "days"))
@@ -474,6 +477,8 @@ func TestGetSecretNotificationValidNoExpiry(t *testing.T) {
 
 	secret := &models.SecretCheckResult{
 		Name:             "testfake.vault.azure.net/my-secret",
+		DisplayName:      "my-secret",
+		Source:           "testfake.vault.azure.net/",
 		IsValid:          true,
 		ExpiresOn:        nil,
 		ValidationIssues: []string{},
@@ -500,6 +505,8 @@ func TestGetSecretNotificationInvalid(t *testing.T) {
 
 	secret := &models.SecretCheckResult{
 		Name:             "testfake.vault.azure.net/my-secret",
+		DisplayName:      "my-secret",
+		Source:           "testfake.vault.azure.net/",
 		IsValid:          false,
 		ExpiresOn:        nil,
 		ValidationIssues: []string{"Secret is disabled"},
@@ -515,85 +522,68 @@ func TestGetSecretNotificationInvalid(t *testing.T) {
 	job.ticker.Stop()
 }
 
-func TestGetAppRegNotificationValid(t *testing.T) {
+func TestGetCredentialNotificationValidSecret(t *testing.T) {
 	job := &CheckCredJob{}
 	job.Init(CheckCredJobConfig{
-		Schedule:          "* * * * *",
-		CertWarningDays:   30,
-		SecretWarningDays: 30,
-		AppRegWarningDays: 30,
-		AppRegList:        appRegList,
-		Notifier:          &mockNotifier{},
+		Schedule:  "* * * * *",
+		AppRegList: appRegList,
+		Notifier:  &mockNotifier{},
 	})
 
 	end := time.Now().AddDate(0, 0, 90)
-	appReg := &models.AppRegCheckResult{
-		AppName:           "TestApp",
-		IsValid:           true,
-		ExpirationWarning: false,
-		Credentials: []models.AppRegCredentialResult{
-			{DisplayName: "CI Key", CredentialType: models.AppRegCredentialSecret, IsValid: true, HasExpiration: true, ValidityInDays: 90, EndDateTime: &end},
-		},
+	cred := models.AppRegCredentialResult{
+		DisplayName: "CI Key", CredentialType: models.AppRegCredentialSecret,
+		IsValid: true, HasExpiration: true, ValidityInDays: 90, EndDateTime: &end,
 	}
 
-	result := job.getAppRegNotification(appReg)
+	result := job.getCredentialNotification("TestApp", cred)
 
 	assert.True(t, result.IsValid)
-	assert.Equal(t, "TestApp", result.Name)
+	assert.Equal(t, "TestApp", result.Source)
+	assert.Equal(t, "🔑 CI Key", result.Name)
 	assert.Empty(t, result.Messages)
 }
 
-func TestGetAppRegNotificationExpiredCredential(t *testing.T) {
+func TestGetCredentialNotificationExpired(t *testing.T) {
 	job := &CheckCredJob{}
 	job.Init(CheckCredJobConfig{
-		Schedule:          "* * * * *",
-		CertWarningDays:   30,
-		SecretWarningDays: 30,
-		AppRegWarningDays: 30,
-		AppRegList:        appRegList,
-		Notifier:          &mockNotifier{},
+		Schedule:  "* * * * *",
+		AppRegList: appRegList,
+		Notifier:  &mockNotifier{},
 	})
 
-	appReg := &models.AppRegCheckResult{
-		AppName: "TestApp",
-		IsValid: false,
-		Credentials: []models.AppRegCredentialResult{
-			{DisplayName: "Old Key", CredentialType: models.AppRegCredentialSecret, IsValid: false, ValidationIssues: []string{"Credential is expired"}},
-		},
+	cred := models.AppRegCredentialResult{
+		DisplayName: "Old Key", CredentialType: models.AppRegCredentialSecret,
+		IsValid: false, ValidationIssues: []string{"Credential is expired"},
 	}
 
-	result := job.getAppRegNotification(appReg)
+	result := job.getCredentialNotification("TestApp", cred)
 
 	assert.False(t, result.IsValid)
+	assert.Equal(t, "TestApp", result.Source)
+	assert.Equal(t, "🔑 Old Key", result.Name)
 	assert.Equal(t, 1, len(result.Messages))
-	assert.Contains(t, result.Messages[0], "Old Key")
-	assert.Contains(t, result.Messages[0], "Credential is expired")
+	assert.Equal(t, "Credential is expired", result.Messages[0])
 }
 
-func TestGetAppRegNotificationWarningCredential(t *testing.T) {
+func TestGetCredentialNotificationWarningCertificate(t *testing.T) {
 	job := &CheckCredJob{}
 	job.Init(CheckCredJobConfig{
-		Schedule:          "* * * * *",
-		CertWarningDays:   30,
-		SecretWarningDays: 30,
-		AppRegWarningDays: 30,
-		AppRegList:        appRegList,
-		Notifier:          &mockNotifier{},
+		Schedule:  "* * * * *",
+		AppRegList: appRegList,
+		Notifier:  &mockNotifier{},
 	})
 
-	appReg := &models.AppRegCheckResult{
-		AppName:           "TestApp",
-		IsValid:           true,
-		ExpirationWarning: true,
-		Credentials: []models.AppRegCredentialResult{
-			{DisplayName: "Expiring Key", CredentialType: models.AppRegCredentialCertificate, IsValid: true, ExpirationWarning: true, ValidityInDays: 10},
-		},
+	cred := models.AppRegCredentialResult{
+		DisplayName: "Auth Cert", CredentialType: models.AppRegCredentialCertificate,
+		IsValid: true, ExpirationWarning: true, ValidityInDays: 10,
 	}
 
-	result := job.getAppRegNotification(appReg)
+	result := job.getCredentialNotification("TestApp", cred)
 
 	assert.True(t, result.IsValid)
+	assert.Equal(t, "TestApp", result.Source)
+	assert.Equal(t, "📜 Auth Cert", result.Name)
 	assert.Equal(t, 1, len(result.Messages))
-	assert.Contains(t, result.Messages[0], "Expiring Key")
-	assert.Contains(t, result.Messages[0], "expires in 10 days")
+	assert.Equal(t, "expires in 10 days", result.Messages[0])
 }

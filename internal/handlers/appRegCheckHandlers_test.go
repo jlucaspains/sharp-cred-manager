@@ -11,7 +11,6 @@ import (
 var appRegList = []models.CheckAppRegItem{
 	{
 		Name:        "app-id",
-		TenantId:    "tenant-id",
 		AppId:       "app-id",
 		AppObjectId: "object-id-1",
 		AppName:     "TestApp",
