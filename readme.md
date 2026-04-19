@@ -190,7 +190,7 @@ Set one or more `APPREGISTRATION_N` environment variables (where N starts at 1) 
 APPREGISTRATION_1=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
 ```
 
-All client secrets and certificates attached to the app registration are discovered automatically at startup and monitored together.
+At startup, sharp-cred-manager reads the configured `APPREGISTRATION_N` entries. The attached client secrets and certificates are then fetched from Microsoft Graph on demand when app registration status is checked, and monitored together.
 
 ### Required Azure permission
 The identity running sharp-cred-manager needs the **`Application.Read.All`** application permission granted in Entra ID (Microsoft Graph). This allows the app to read application properties including `passwordCredentials` and `keyCredentials`.
