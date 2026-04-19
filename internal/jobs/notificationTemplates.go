@@ -28,7 +28,7 @@ const slackMessageTemplate = `{
 "type": "section",
 "text": {
 "type": "mrkdwn",
-"text": "{{if not $item.IsValid}}:x:{{else if $item.ExpirationWarning}}:warning:{{else}}:white_check_mark:{{end}}\t*{{$itemName}}*\n{{ range $index, $element := $item.Messages}}{{if $index}}, {{end}}{{$element}}{{end}}"
+"text": "{{if not $item.IsValid}}:x:{{else if $item.ExpirationWarning}}:warning:{{else}}:white_check_mark:{{end}}\t*{{$item.Source}} / {{$itemName}}*\n{{ range $index, $element := $item.Messages}}{{if $index}}, {{end}}{{$element}}{{end}}"
 }
 },
 {{- end}}
@@ -72,6 +72,23 @@ const teamsMessageTemplate = `{
 "type": "AdaptiveCard",
 "version": "1.5",
 "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+"msteams": {
+"width": "full"{{if gt (len .Mentions) 0}},
+"entities": [
+{{- $max := len (slice .Mentions 1)}}
+{{- range $i, $item := .Mentions}}
+{{- $shortNames := split $item "@"}}
+{
+"type": "mention",
+"text": "<at>{{$item}}</at>",
+"mentioned": {
+"id": "{{$item}}",
+"name": "{{ index $shortNames 0 }}"
+}
+}{{if lt $i $max}},{{end}}
+{{- end}}
+]{{end}}
+},
 "body": [
 {
 "type": "TextBlock",
@@ -105,7 +122,10 @@ const teamsMessageTemplate = `{
 {
 "width": 2
 },
-{
+{{if $group.ShowSource}}{
+"width": 2
+},
+{{end}}{
 "width": 4
 }
 ],
@@ -115,12 +135,22 @@ const teamsMessageTemplate = `{
 {
 "type": "TableRow",
 "cells": [
-{
+{{if $group.ShowSource}}{
 "type": "TableCell",
 "items": [
 {
 "type": "TextBlock",
-"text": "{{if not $item.IsValid}}❌{{else if $item.ExpirationWarning}}⚠️{{else}}✔️{{end}} {{$item.Name}}",
+"text": "{{$item.Source}}",
+"wrap": true
+}
+]
+},
+{{end}}{
+"type": "TableCell",
+"items": [
+{
+"type": "TextBlock",
+"text": "{{$item.Name}}",
 "wrap": true
 }
 ]
@@ -130,7 +160,7 @@ const teamsMessageTemplate = `{
 "items": [
 {
 "type": "TextBlock",
-"text": "{{ range $index, $element := $item.Messages}}{{if $index}}, {{end}}{{$element}}{{end}}",
+"text": "{{if not $item.IsValid}}❌{{else if $item.ExpirationWarning}}⚠️{{else}}✔️{{end}}{{if $item.Messages}} {{ range $index, $element := $item.Messages}}{{if $index}}, {{end}}{{$element}}{{end}}{{end}}",
 "wrap": true
 }
 ]
@@ -174,24 +204,7 @@ const teamsMessageTemplate = `{
 "title": "View Details",
 "url": "{{ .NotificationUrl }}"
 }
-]{{end}}{{if gt (len .Mentions) 0}},
-"msteams": {
-                "entities": [
-{{- $max := len (slice .Mentions 1)}}
-{{- range $i, $item := .Mentions}}
-{{- $shortNames := split $item "@"}}
-                    {
-"type": "mention",
-"text": "<at>{{$item}}</at>",
-"mentioned": {
-"id": "{{$item}}",
-"name": "{{ index $shortNames 0 }}"
-}
-}{{if lt $i $max}},{{end}}
-{{- end}}
-]
-}
-{{- end}}
+]{{end}}
 }
 }]
 }`
