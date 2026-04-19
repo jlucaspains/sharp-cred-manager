@@ -1,7 +1,7 @@
 module github.com/jlucaspains/sharp-cred-manager
 
 go 1.25.0
-toolchain go1.25.0
+toolchain go1.25.1
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.1
