@@ -16,10 +16,8 @@ import (
 	"github.com/jlucaspains/sharp-cred-manager/internal/models"
 )
 
-// graphHTTPClient is a package-level HTTP client with a timeout, reused across all Graph requests.
-var graphHTTPClient = &http.Client{
-	Timeout: 30 * time.Second,
-}
+// graphHTTPClient is a package-level HTTP client reused across all Graph requests.
+var graphHTTPClient = &http.Client{}
 
 // mockGraphAppResult bypasses Graph HTTP calls for unit tests within this package.
 var mockGraphAppResult *graphApplication = nil
