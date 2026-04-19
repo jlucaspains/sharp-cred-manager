@@ -144,71 +144,72 @@ func (c *CheckCredJob) tryExecute() {
 }
 
 func (c *CheckCredJob) execute() {
-	certGroup := CheckNotificationGroup{Label: "Certificates"}
-	for _, item := range c.certList {
-		checkStatus, err := services.CheckCertStatus(item, c.certWarningDays)
-
-		if err != nil {
-			log.Printf("Error checking cert status: %s", err)
-			continue
-		}
-
-		log.Printf("Cert status for %s: %t", item.Name, checkStatus.IsValid)
-
-		n := c.getCertNotification(checkStatus)
-		if c.shouldNotify(n) {
-			certGroup.Items = append(certGroup.Items, n)
-		}
-	}
-
-	secretGroup := CheckNotificationGroup{Label: "Secrets"}
-	for _, item := range c.secretList {
-		checkStatus, err := services.CheckSecretStatus(item, c.secretWarningDays)
-
-		if err != nil {
-			log.Printf("Error checking secret status: %s", err)
-			continue
-		}
-
-		log.Printf("Secret status for %s: %t", item.Name, checkStatus.IsValid)
-
-		n := c.getSecretNotification(checkStatus)
-		if c.shouldNotify(n) {
-			secretGroup.Items = append(secretGroup.Items, n)
-		}
-	}
-
-	appRegGroup := CheckNotificationGroup{Label: "App Registrations"}
-	for _, item := range c.appRegList {
-		checkStatus, err := services.CheckAppRegStatus(item, c.appRegWarningDays)
-
-		if err != nil {
-			log.Printf("Error checking app registration status: %s", err)
-			continue
-		}
-
-		log.Printf("App registration status for %s: %t", item.Name, checkStatus.IsValid)
-
-		n := c.getAppRegNotification(checkStatus)
-		if c.shouldNotify(n) {
-			appRegGroup.Items = append(appRegGroup.Items, n)
-		}
-	}
-
 	groups := []CheckNotificationGroup{}
-	if len(certGroup.Items) > 0 {
+
+	if certGroup := c.buildCertGroup(); len(certGroup.Items) > 0 {
 		groups = append(groups, certGroup)
 	}
-	if len(secretGroup.Items) > 0 {
+	if secretGroup := c.buildSecretGroup(); len(secretGroup.Items) > 0 {
 		groups = append(groups, secretGroup)
 	}
-	if len(appRegGroup.Items) > 0 {
+	if appRegGroup := c.buildAppRegGroup(); len(appRegGroup.Items) > 0 {
 		groups = append(groups, appRegGroup)
 	}
 
 	if err := c.notifier.Notify(groups); err != nil {
 		log.Printf("Error sending notification: %s", err)
 	}
+}
+
+func (c *CheckCredJob) buildCertGroup() CheckNotificationGroup {
+	group := CheckNotificationGroup{Label: "Certificates"}
+	for _, item := range c.certList {
+		checkStatus, err := services.CheckCertStatus(item, c.certWarningDays)
+		if err != nil {
+			log.Printf("Error checking cert status: %s", err)
+			continue
+		}
+		log.Printf("Cert status for %s: %t", item.Name, checkStatus.IsValid)
+		n := c.getCertNotification(checkStatus)
+		if c.shouldNotify(n) {
+			group.Items = append(group.Items, n)
+		}
+	}
+	return group
+}
+
+func (c *CheckCredJob) buildSecretGroup() CheckNotificationGroup {
+	group := CheckNotificationGroup{Label: "Secrets"}
+	for _, item := range c.secretList {
+		checkStatus, err := services.CheckSecretStatus(item, c.secretWarningDays)
+		if err != nil {
+			log.Printf("Error checking secret status: %s", err)
+			continue
+		}
+		log.Printf("Secret status for %s: %t", item.Name, checkStatus.IsValid)
+		n := c.getSecretNotification(checkStatus)
+		if c.shouldNotify(n) {
+			group.Items = append(group.Items, n)
+		}
+	}
+	return group
+}
+
+func (c *CheckCredJob) buildAppRegGroup() CheckNotificationGroup {
+	group := CheckNotificationGroup{Label: "App Registrations"}
+	for _, item := range c.appRegList {
+		checkStatus, err := services.CheckAppRegStatus(item, c.appRegWarningDays)
+		if err != nil {
+			log.Printf("Error checking app registration status: %s", err)
+			continue
+		}
+		log.Printf("App registration status for %s: %t", item.Name, checkStatus.IsValid)
+		n := c.getAppRegNotification(checkStatus)
+		if c.shouldNotify(n) {
+			group.Items = append(group.Items, n)
+		}
+	}
+	return group
 }
 
 func (c *CheckCredJob) shouldNotify(model CheckNotification) bool {
