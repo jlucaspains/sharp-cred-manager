@@ -259,13 +259,23 @@ func (c *CheckCredJob) filterAppRegResults(results []*models.AppRegCheckResult) 
 			}
 		}
 		if len(filteredCreds) > 0 {
+			isValid := true
+			expirationWarning := false
+			for _, cred := range filteredCreds {
+				if !cred.IsValid {
+					isValid = false
+				}
+				if cred.ExpirationWarning {
+					expirationWarning = true
+				}
+			}
 			filtered = append(filtered, &models.AppRegCheckResult{
 				Name:              r.Name,
 				AppName:           r.AppName,
 				AppId:             r.AppId,
 				AppObjectId:       r.AppObjectId,
-				IsValid:           r.IsValid,
-				ExpirationWarning: r.ExpirationWarning,
+				IsValid:           isValid,
+				ExpirationWarning: expirationWarning,
 				Credentials:       filteredCreds,
 			})
 		}
