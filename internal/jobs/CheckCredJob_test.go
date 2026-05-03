@@ -24,6 +24,29 @@ func (m *mockNotifier) IsReady() bool {
 	return true
 }
 
+type mockRawNotifier struct {
+	notifyRawCalled bool
+	certResults     []*models.CertCheckResult
+	secretResults   []*models.SecretCheckResult
+	appRegResults   []*models.AppRegCheckResult
+}
+
+func (m *mockRawNotifier) Notify(_ []CheckNotificationGroup) error {
+	return nil
+}
+
+func (m *mockRawNotifier) IsReady() bool {
+	return true
+}
+
+func (m *mockRawNotifier) NotifyRaw(certs []*models.CertCheckResult, secrets []*models.SecretCheckResult, appRegs []*models.AppRegCheckResult) error {
+	m.notifyRawCalled = true
+	m.certResults = certs
+	m.secretResults = secrets
+	m.appRegResults = appRegs
+	return nil
+}
+
 var certList = []models.CheckCertItem{
 	{Name: "blog.lpains.net", Url: "https://blog.lpains.net", Type: models.CertCheckURL},
 }
@@ -586,4 +609,71 @@ func TestGetCredentialNotificationWarningCertificate(t *testing.T) {
 	assert.Equal(t, "📜 Auth Cert", result.Name)
 	assert.Equal(t, 1, len(result.Messages))
 	assert.Equal(t, "expires in 10 days", result.Messages[0])
+}
+
+func TestCheckCredJob_UsesRawNotifier(t *testing.T) {
+	job := &CheckCredJob{}
+	notifier := &mockRawNotifier{}
+	job.Init(CheckCredJobConfig{
+		Schedule: "* * * * *",
+		CertList: certList,
+		Notifier: notifier,
+	})
+	job.notifier = notifier
+	job.RunNow()
+
+	assert.True(t, notifier.notifyRawCalled, "NotifyRaw should be called when notifier implements RawNotifier")
+}
+
+func TestFilterCertResults_ExcludesInfo(t *testing.T) {
+	job := &CheckCredJob{level: Warning}
+	results := []*models.CertCheckResult{
+		{IsValid: true, ExpirationWarning: false},  // should be excluded at Warning level
+		{IsValid: true, ExpirationWarning: true},   // should be included
+		{IsValid: false, ExpirationWarning: false},  // should be included
+	}
+	filtered := job.filterCertResults(results)
+	assert.Equal(t, 2, len(filtered))
+	assert.True(t, filtered[0].ExpirationWarning)
+	assert.False(t, filtered[1].IsValid)
+}
+
+func TestFilterSecretResults_ExcludesInfo(t *testing.T) {
+	job := &CheckCredJob{level: Warning}
+	results := []*models.SecretCheckResult{
+		{IsValid: true, ExpirationWarning: false},
+		{IsValid: true, ExpirationWarning: true},
+	}
+	filtered := job.filterSecretResults(results)
+	assert.Equal(t, 1, len(filtered))
+	assert.True(t, filtered[0].ExpirationWarning)
+}
+
+func TestFilterAppRegResults_FiltersCredentials(t *testing.T) {
+	job := &CheckCredJob{level: Warning}
+	results := []*models.AppRegCheckResult{
+		{
+			AppName: "App1",
+			IsValid: true,
+			ExpirationWarning: true,
+			Credentials: []models.AppRegCredentialResult{
+				{IsValid: true, ExpirationWarning: true},   // included
+				{IsValid: true, ExpirationWarning: false},  // excluded at Warning level
+			},
+		},
+		{
+			AppName: "App2",
+			IsValid: true,
+			ExpirationWarning: false,
+			Credentials: []models.AppRegCredentialResult{
+				{IsValid: true, ExpirationWarning: false},  // excluded — whole app reg should be dropped
+			},
+		},
+	}
+	filtered := job.filterAppRegResults(results)
+	assert.Equal(t, 1, len(filtered), "App2 should be dropped since no credentials pass")
+	assert.Equal(t, "App1", filtered[0].AppName)
+	assert.Equal(t, 1, len(filtered[0].Credentials), "Only the warning credential should remain")
+	assert.True(t, filtered[0].ExpirationWarning, "Recomputed ExpirationWarning should be true")
+	assert.True(t, filtered[0].IsValid, "Recomputed IsValid should be true (remaining cred is valid)")
 }

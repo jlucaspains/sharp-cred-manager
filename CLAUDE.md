@@ -52,7 +52,7 @@ Two entry points:
 Core packages under `internal/`:
 - `handlers/` — HTTP handlers serving both JSON API and server-side HTML (Go `html/template`)
 - `services/` — Business logic: TLS certificate validation (`certService.go`) and Azure Key Vault secret checks (`secretService.go`)
-- `jobs/` — Cron-scheduled background jobs (`CheckCredJob.go`) and webhook notification (`webHookNotifier.go`, `notificationTemplates.go`)
+- `jobs/` — Cron-scheduled background jobs (`CheckCredJob.go`) and webhook notification (`teamsSlackNotifier.go`, `notificationTemplates.go`)
 - `models/` — Shared request/response structs
 - `midlewares/` — HTTP middleware (request logging)
 
