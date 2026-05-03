@@ -24,6 +24,29 @@ func (m *mockNotifier) IsReady() bool {
 	return true
 }
 
+type mockRawNotifier struct {
+	notifyRawCalled bool
+	certResults     []*models.CertCheckResult
+	secretResults   []*models.SecretCheckResult
+	appRegResults   []*models.AppRegCheckResult
+}
+
+func (m *mockRawNotifier) Notify(_ []CheckNotificationGroup) error {
+	return nil
+}
+
+func (m *mockRawNotifier) IsReady() bool {
+	return true
+}
+
+func (m *mockRawNotifier) NotifyRaw(certs []*models.CertCheckResult, secrets []*models.SecretCheckResult, appRegs []*models.AppRegCheckResult) error {
+	m.notifyRawCalled = true
+	m.certResults = certs
+	m.secretResults = secrets
+	m.appRegResults = appRegs
+	return nil
+}
+
 var certList = []models.CheckCertItem{
 	{Name: "blog.lpains.net", Url: "https://blog.lpains.net", Type: models.CertCheckURL},
 }
@@ -586,4 +609,18 @@ func TestGetCredentialNotificationWarningCertificate(t *testing.T) {
 	assert.Equal(t, "📜 Auth Cert", result.Name)
 	assert.Equal(t, 1, len(result.Messages))
 	assert.Equal(t, "expires in 10 days", result.Messages[0])
+}
+
+func TestCheckCredJob_UsesRawNotifier(t *testing.T) {
+	job := &CheckCredJob{}
+	notifier := &mockRawNotifier{}
+	job.Init(CheckCredJobConfig{
+		Schedule: "* * * * *",
+		CertList: certList,
+		Notifier: notifier,
+	})
+	job.notifier = notifier
+	job.RunNow()
+
+	assert.True(t, notifier.notifyRawCalled, "NotifyRaw should be called when notifier implements RawNotifier")
 }
