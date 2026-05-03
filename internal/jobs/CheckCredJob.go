@@ -16,6 +16,15 @@ type Notifier interface {
 	IsReady() bool
 }
 
+type RawNotifier interface {
+	Notifier
+	NotifyRaw(
+		certs   []*models.CertCheckResult,
+		secrets []*models.SecretCheckResult,
+		appRegs []*models.AppRegCheckResult,
+	) error
+}
+
 type Level int
 
 const (
@@ -147,15 +156,29 @@ func (c *CheckCredJob) tryExecute() {
 }
 
 func (c *CheckCredJob) execute() {
-	groups := []CheckNotificationGroup{}
+	certResults := c.checkCerts()
+	secretResults := c.checkSecrets()
+	appRegResults := c.checkAppRegs()
 
-	if certGroup := c.buildCertGroup(); len(certGroup.Items) > 0 {
+	if raw, ok := c.notifier.(RawNotifier); ok {
+		if err := raw.NotifyRaw(
+			c.filterCertResults(certResults),
+			c.filterSecretResults(secretResults),
+			c.filterAppRegResults(appRegResults),
+		); err != nil {
+			log.Printf("Error sending notification: %s", err)
+		}
+		return
+	}
+
+	groups := []CheckNotificationGroup{}
+	if certGroup := c.buildCertGroup(certResults); len(certGroup.Items) > 0 {
 		groups = append(groups, certGroup)
 	}
-	if secretGroup := c.buildSecretGroup(); len(secretGroup.Items) > 0 {
+	if secretGroup := c.buildSecretGroup(secretResults); len(secretGroup.Items) > 0 {
 		groups = append(groups, secretGroup)
 	}
-	if appRegGroup := c.buildAppRegGroup(); len(appRegGroup.Items) > 0 {
+	if appRegGroup := c.buildAppRegGroup(appRegResults); len(appRegGroup.Items) > 0 {
 		groups = append(groups, appRegGroup)
 	}
 
@@ -164,8 +187,8 @@ func (c *CheckCredJob) execute() {
 	}
 }
 
-func (c *CheckCredJob) buildCertGroup() CheckNotificationGroup {
-	group := CheckNotificationGroup{Label: "Certificates", ShowSource: true}
+func (c *CheckCredJob) checkCerts() []*models.CertCheckResult {
+	results := []*models.CertCheckResult{}
 	for _, item := range c.certList {
 		checkStatus, err := services.CheckCertStatus(item, c.certWarningDays)
 		if err != nil {
@@ -173,6 +196,86 @@ func (c *CheckCredJob) buildCertGroup() CheckNotificationGroup {
 			continue
 		}
 		log.Printf("Cert status for %s: %t", item.Name, checkStatus.IsValid)
+		results = append(results, checkStatus)
+	}
+	return results
+}
+
+func (c *CheckCredJob) checkSecrets() []*models.SecretCheckResult {
+	results := []*models.SecretCheckResult{}
+	for _, item := range c.secretList {
+		checkStatus, err := services.CheckSecretStatus(item, c.secretWarningDays)
+		if err != nil {
+			log.Printf("Error checking secret status: %s", err)
+			continue
+		}
+		log.Printf("Secret status for %s: %t", item.Name, checkStatus.IsValid)
+		results = append(results, checkStatus)
+	}
+	return results
+}
+
+func (c *CheckCredJob) checkAppRegs() []*models.AppRegCheckResult {
+	results := []*models.AppRegCheckResult{}
+	for _, item := range c.appRegList {
+		checkStatus, err := services.CheckAppRegStatus(item, c.appRegWarningDays)
+		if err != nil {
+			log.Printf("Error checking app registration status: %s", err)
+			continue
+		}
+		log.Printf("App registration status for %s: %t", item.Name, checkStatus.IsValid)
+		results = append(results, checkStatus)
+	}
+	return results
+}
+
+func (c *CheckCredJob) filterCertResults(results []*models.CertCheckResult) []*models.CertCheckResult {
+	filtered := []*models.CertCheckResult{}
+	for _, r := range results {
+		if c.shouldNotify(CheckNotification{IsValid: r.IsValid, ExpirationWarning: r.ExpirationWarning}) {
+			filtered = append(filtered, r)
+		}
+	}
+	return filtered
+}
+
+func (c *CheckCredJob) filterSecretResults(results []*models.SecretCheckResult) []*models.SecretCheckResult {
+	filtered := []*models.SecretCheckResult{}
+	for _, r := range results {
+		if c.shouldNotify(CheckNotification{IsValid: r.IsValid, ExpirationWarning: r.ExpirationWarning}) {
+			filtered = append(filtered, r)
+		}
+	}
+	return filtered
+}
+
+func (c *CheckCredJob) filterAppRegResults(results []*models.AppRegCheckResult) []*models.AppRegCheckResult {
+	filtered := []*models.AppRegCheckResult{}
+	for _, r := range results {
+		filteredCreds := []models.AppRegCredentialResult{}
+		for _, cred := range r.Credentials {
+			if c.shouldNotify(CheckNotification{IsValid: cred.IsValid, ExpirationWarning: cred.ExpirationWarning}) {
+				filteredCreds = append(filteredCreds, cred)
+			}
+		}
+		if len(filteredCreds) > 0 {
+			filtered = append(filtered, &models.AppRegCheckResult{
+				Name:              r.Name,
+				AppName:           r.AppName,
+				AppId:             r.AppId,
+				AppObjectId:       r.AppObjectId,
+				IsValid:           r.IsValid,
+				ExpirationWarning: r.ExpirationWarning,
+				Credentials:       filteredCreds,
+			})
+		}
+	}
+	return filtered
+}
+
+func (c *CheckCredJob) buildCertGroup(results []*models.CertCheckResult) CheckNotificationGroup {
+	group := CheckNotificationGroup{Label: "Certificates", ShowSource: true}
+	for _, checkStatus := range results {
 		n := c.getCertNotification(checkStatus)
 		if c.shouldNotify(n) {
 			group.Items = append(group.Items, n)
@@ -181,15 +284,9 @@ func (c *CheckCredJob) buildCertGroup() CheckNotificationGroup {
 	return group
 }
 
-func (c *CheckCredJob) buildSecretGroup() CheckNotificationGroup {
+func (c *CheckCredJob) buildSecretGroup(results []*models.SecretCheckResult) CheckNotificationGroup {
 	group := CheckNotificationGroup{Label: "Secrets", ShowSource: true}
-	for _, item := range c.secretList {
-		checkStatus, err := services.CheckSecretStatus(item, c.secretWarningDays)
-		if err != nil {
-			log.Printf("Error checking secret status: %s", err)
-			continue
-		}
-		log.Printf("Secret status for %s: %t", item.Name, checkStatus.IsValid)
+	for _, checkStatus := range results {
 		n := c.getSecretNotification(checkStatus)
 		if c.shouldNotify(n) {
 			group.Items = append(group.Items, n)
@@ -198,15 +295,9 @@ func (c *CheckCredJob) buildSecretGroup() CheckNotificationGroup {
 	return group
 }
 
-func (c *CheckCredJob) buildAppRegGroup() CheckNotificationGroup {
+func (c *CheckCredJob) buildAppRegGroup(results []*models.AppRegCheckResult) CheckNotificationGroup {
 	group := CheckNotificationGroup{Label: "App Registrations", ShowSource: true}
-	for _, item := range c.appRegList {
-		checkStatus, err := services.CheckAppRegStatus(item, c.appRegWarningDays)
-		if err != nil {
-			log.Printf("Error checking app registration status: %s", err)
-			continue
-		}
-		log.Printf("App registration status for %s: %t", item.Name, checkStatus.IsValid)
+	for _, checkStatus := range results {
 		for _, cred := range checkStatus.Credentials {
 			n := c.getCredentialNotification(checkStatus.AppName, cred)
 			if c.shouldNotify(n) {
