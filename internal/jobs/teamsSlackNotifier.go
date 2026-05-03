@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-type WebHookNotifier struct {
+type TeamsSlackNotifier struct {
 	NotifierType      NotifierType
 	WebhookUrl        string
 	NotificationTitle string
@@ -20,7 +20,7 @@ type WebHookNotifier struct {
 	httpClient        *http.Client
 }
 
-type WebHookNotificationCard struct {
+type TeamsSlackNotificationCard struct {
 	Title           string
 	Description     string
 	NotificationUrl string
@@ -28,7 +28,7 @@ type WebHookNotificationCard struct {
 	Mentions        []string
 }
 
-func (m *WebHookNotifier) Init(notifierType NotifierType, webhookUrl string, notificationTitle string, notificationBody string, notificationUrl string, messageMentions string) {
+func (m *TeamsSlackNotifier) Init(notifierType NotifierType, webhookUrl string, notificationTitle string, notificationBody string, notificationUrl string, messageMentions string) {
 	if notificationTitle == "" {
 		notificationTitle = "Sharp Cred Manager Summary"
 	}
@@ -53,10 +53,10 @@ func parseMentions(mentions string) []string {
 	return strings.Split(mentions, ",")
 }
 
-func (m *WebHookNotifier) Notify(groups []CheckNotificationGroup) error {
+func (m *TeamsSlackNotifier) Notify(groups []CheckNotificationGroup) error {
 	client := m.getClient()
 	parsedTemplate := m.getTemplate()
-	card := WebHookNotificationCard{
+	card := TeamsSlackNotificationCard{
 		Title:           m.NotificationTitle,
 		Description:     m.NotificationBody,
 		NotificationUrl: m.NotificationUrl,
@@ -94,7 +94,7 @@ func (m *WebHookNotifier) Notify(groups []CheckNotificationGroup) error {
 	return nil
 }
 
-func (m *WebHookNotifier) getTemplate() *template.Template {
+func (m *TeamsSlackNotifier) getTemplate() *template.Template {
 	if m.parsedTemplate == nil {
 		m.parsedTemplate, _ = template.New("template").Funcs(template.FuncMap{
 			"split": func(s, sep string) []string {
@@ -109,7 +109,7 @@ func (m *WebHookNotifier) getTemplate() *template.Template {
 	return m.parsedTemplate
 }
 
-func (m *WebHookNotifier) getClient() *http.Client {
+func (m *TeamsSlackNotifier) getClient() *http.Client {
 	if m.httpClient == nil {
 		m.httpClient = &http.Client{}
 	}
@@ -117,6 +117,6 @@ func (m *WebHookNotifier) getClient() *http.Client {
 	return m.httpClient
 }
 
-func (m *WebHookNotifier) IsReady() bool {
+func (m *TeamsSlackNotifier) IsReady() bool {
 	return m.WebhookUrl != ""
 }

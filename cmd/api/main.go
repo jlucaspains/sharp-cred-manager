@@ -31,7 +31,7 @@ func loadEnv() {
 }
 
 func getJobNotifier() jobs.Notifier {
-	result := &jobs.WebHookNotifier{}
+	result := &jobs.TeamsSlackNotifier{}
 
 	webhookType, _ := os.LookupEnv("WEBHOOK_TYPE")
 	WebhookUrl, _ := os.LookupEnv("WEBHOOK_URL")
