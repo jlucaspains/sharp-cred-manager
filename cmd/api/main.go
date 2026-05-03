@@ -31,17 +31,26 @@ func loadEnv() {
 }
 
 func getJobNotifier() jobs.Notifier {
-	result := &jobs.TeamsSlackNotifier{}
-
 	webhookType, _ := os.LookupEnv("WEBHOOK_TYPE")
-	WebhookUrl, _ := os.LookupEnv("WEBHOOK_URL")
+	webhookUrl, _ := os.LookupEnv("WEBHOOK_URL")
+
+	if webhookType == "generic" {
+		authType, _ := os.LookupEnv("WEBHOOK_AUTH_TYPE")
+		authToken, _ := os.LookupEnv("WEBHOOK_AUTH_TOKEN")
+		authUsername, _ := os.LookupEnv("WEBHOOK_AUTH_USERNAME")
+		authPassword, _ := os.LookupEnv("WEBHOOK_AUTH_PASSWORD")
+		result := &jobs.GenericWebhookNotifier{}
+		result.Init(webhookUrl, authType, authToken, authUsername, authPassword)
+		return result
+	}
+
 	messageUrl, _ := os.LookupEnv("MESSAGE_URL")
 	messageTitle, _ := os.LookupEnv("MESSAGE_TITLE")
 	messageBody, _ := os.LookupEnv("MESSAGE_BODY")
 	messageMentions, _ := os.LookupEnv("MESSAGE_MENTIONS")
 
-	result.Init(jobs.Notifiers[webhookType], WebhookUrl, messageTitle, messageBody, messageUrl, messageMentions)
-
+	result := &jobs.TeamsSlackNotifier{}
+	result.Init(jobs.Notifiers[webhookType], webhookUrl, messageTitle, messageBody, messageUrl, messageMentions)
 	return result
 }
 
