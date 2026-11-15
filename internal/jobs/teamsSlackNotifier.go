@@ -76,7 +76,6 @@ func (m *TeamsSlackNotifier) Notify(groups []CheckNotificationGroup) error {
 	}
 
 	body := templateBody.Bytes()
-	fmt.Println(string(body))
 
 	newRequest := func() (*http.Request, error) {
 		req, err := http.NewRequest(http.MethodPost, m.WebhookUrl, bytes.NewReader(body))
