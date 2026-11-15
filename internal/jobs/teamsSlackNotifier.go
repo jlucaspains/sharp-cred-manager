@@ -18,6 +18,7 @@ type TeamsSlackNotifier struct {
 	Mentions          []string
 	parsedTemplate    *template.Template
 	httpClient        *http.Client
+	retryPolicy       retryPolicy
 }
 
 type TeamsSlackNotificationCard struct {
@@ -54,6 +55,9 @@ func parseMentions(mentions string) []string {
 }
 
 func (m *TeamsSlackNotifier) Notify(groups []CheckNotificationGroup) error {
+	if m.retryPolicy.maxAttempts == 0 {
+		m.retryPolicy = defaultRetryPolicy
+	}
 	client := m.getClient()
 	parsedTemplate := m.getTemplate()
 	card := TeamsSlackNotificationCard{
@@ -71,27 +75,19 @@ func (m *TeamsSlackNotifier) Notify(groups []CheckNotificationGroup) error {
 		return err
 	}
 
-	stringBody := templateBody.String()
-	fmt.Println(stringBody)
+	body := templateBody.Bytes()
+	fmt.Println(string(body))
 
-	response, err := client.Post(m.WebhookUrl, "application/json", bytes.NewReader(templateBody.Bytes()))
-
-	if err != nil {
-		return err
-	}
-
-	defer response.Body.Close()
-
-	if response.StatusCode != 200 && response.StatusCode != 202 {
-		body := new(bytes.Buffer)
-		body.ReadFrom(response.Body)
-		if body.Len() > 0 {
-			return fmt.Errorf("error sending notification to %s. Error %s: %s", m.NotifierType, response.Status, body.String())
+	newRequest := func() (*http.Request, error) {
+		req, err := http.NewRequest(http.MethodPost, m.WebhookUrl, bytes.NewReader(body))
+		if err != nil {
+			return nil, err
 		}
-		return fmt.Errorf("error sending notification to %s. Error %s", m.NotifierType, response.Status)
+		req.Header.Set("Content-Type", "application/json")
+		return req, nil
 	}
 
-	return nil
+	return postWithRetry(client, newRequest, m.NotifierType.String(), m.retryPolicy)
 }
 
 func (m *TeamsSlackNotifier) getTemplate() *template.Template {
@@ -111,7 +107,7 @@ func (m *TeamsSlackNotifier) getTemplate() *template.Template {
 
 func (m *TeamsSlackNotifier) getClient() *http.Client {
 	if m.httpClient == nil {
-		m.httpClient = &http.Client{}
+		m.httpClient = &http.Client{Timeout: webhookClientTimeout}
 	}
 
 	return m.httpClient
