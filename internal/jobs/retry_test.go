@@ -302,3 +302,55 @@ func TestGenericWebhookNotifier_RetriesWithAuth(t *testing.T) {
 		})
 	}
 }
+
+func TestParseRetryAfter_HugeSecondsDoesNotOverflow(t *testing.T) {
+	for _, h := range []string{"9223372037", "10000000000", "99999999999999999"} {
+		d, ok := parseRetryAfter(h, time.Now())
+		assert.True(t, ok, h)
+		assert.Greater(t, d, time.Duration(0), h)
+	}
+}
+
+func TestPostWithRetry_HugeRetryAfterIsCapped(t *testing.T) {
+	ts := newScriptedServer(t, scriptedResponse{status: http.StatusTooManyRequests, retryAfter: "10000000000"}, scriptedResponse{status: http.StatusOK})
+	sleeps := &recordedSleeps{}
+
+	err := postWithRetry(ts.Client(), postBody(ts.URL, "x"), "Teams", testRetryPolicy(sleeps))
+
+	assert.Nil(t, err)
+	assert.Equal(t, []time.Duration{30 * time.Second}, sleeps.delays)
+}
+
+func TestPostWithRetry_NetworkErrorOmitsURL(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	url := ts.URL + "/webhook/secret-token"
+	ts.Close()
+	sleeps := &recordedSleeps{}
+
+	err := postWithRetry(&http.Client{}, postBody(url, "x"), "Teams", testRetryPolicy(sleeps))
+
+	assert.NotNil(t, err)
+	assert.NotContains(t, err.Error(), "secret-token")
+	assert.Contains(t, err.Error(), "error sending notification to Teams:")
+	assert.Contains(t, err.Error(), "after 3 attempts")
+}
+
+func TestPostWithRetry_ErrorBodyIsTruncated(t *testing.T) {
+	ts := newScriptedServer(t, scriptedResponse{status: http.StatusBadRequest, body: strings.Repeat("a", maxErrorBodyBytes+500)})
+	sleeps := &recordedSleeps{}
+
+	err := postWithRetry(ts.Client(), postBody(ts.URL, "x"), "Teams", testRetryPolicy(sleeps))
+
+	assert.NotNil(t, err)
+	assert.True(t, strings.HasSuffix(err.Error(), strings.Repeat("a", 10)+"... (truncated)"))
+	assert.NotContains(t, err.Error(), strings.Repeat("a", maxErrorBodyBytes+1))
+}
+
+func TestPostWithRetry_ErrorBodyAtLimitNotTruncated(t *testing.T) {
+	ts := newScriptedServer(t, scriptedResponse{status: http.StatusBadRequest, body: strings.Repeat("a", maxErrorBodyBytes)})
+	sleeps := &recordedSleeps{}
+
+	err := postWithRetry(ts.Client(), postBody(ts.URL, "x"), "Teams", testRetryPolicy(sleeps))
+
+	assert.NotContains(t, err.Error(), "truncated")
+}
