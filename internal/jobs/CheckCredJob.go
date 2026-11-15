@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -19,7 +20,7 @@ type Notifier interface {
 type RawNotifier interface {
 	Notifier
 	NotifyRaw(
-		certs   []*models.CertCheckResult,
+		certs []*models.CertCheckResult,
 		secrets []*models.SecretCheckResult,
 		appRegs []*models.AppRegCheckResult,
 	) error
@@ -34,9 +35,44 @@ const (
 )
 
 var levels = map[string]Level{
-	"Info":    Info,
-	"Warning": Warning,
-	"Error":   Error,
+	"info":    Info,
+	"warning": Warning,
+	"error":   Error,
+}
+
+func (l Level) String() string {
+	switch l {
+	case Info:
+		return "Info"
+	case Error:
+		return "Error"
+	default:
+		return "Warning"
+	}
+}
+
+// parseLevel matches a level name ignoring case and surrounding whitespace.
+func parseLevel(value string) (Level, bool) {
+	level, ok := levels[strings.ToLower(strings.TrimSpace(value))]
+	return level, ok
+}
+
+const (
+	CertificatesLabel     = "Certificates"
+	SecretsLabel          = "Secrets"
+	AppRegistrationsLabel = "App Registrations"
+)
+
+type NotificationMode int
+
+const (
+	Combined NotificationMode = iota
+	Split
+)
+
+var modes = map[string]NotificationMode{
+	"combined": Combined,
+	"split":    Split,
 }
 
 type CheckNotification struct {
@@ -62,7 +98,10 @@ type CheckCredJob struct {
 	appRegList        []models.CheckAppRegItem
 	running           bool
 	notifier          Notifier
-	level             Level
+	mode              NotificationMode
+	certLevel         Level
+	secretLevel       Level
+	appRegLevel       Level
 	certWarningDays   int
 	secretWarningDays int
 	appRegWarningDays int
@@ -71,6 +110,10 @@ type CheckCredJob struct {
 type CheckCredJobConfig struct {
 	Schedule          string
 	Level             string
+	Mode              string
+	CertLevel         string
+	SecretLevel       string
+	AppRegLevel       string
 	CertWarningDays   int
 	SecretWarningDays int
 	AppRegWarningDays int
@@ -93,9 +136,14 @@ func (c *CheckCredJob) Init(config CheckCredJobConfig) error {
 		return fmt.Errorf("a valid notifier is required")
 	}
 
-	levelValue, ok := levels[config.Level]
-	if !ok {
-		levelValue = Warning
+	mode := Combined
+	if modeValue := strings.TrimSpace(config.Mode); modeValue != "" {
+		parsedMode, ok := modes[strings.ToLower(modeValue)]
+		if ok {
+			mode = parsedMode
+		} else {
+			log.Printf("Invalid notification mode %q, falling back to combined", config.Mode)
+		}
 	}
 
 	if config.CertWarningDays <= 0 {
@@ -116,12 +164,48 @@ func (c *CheckCredJob) Init(config CheckCredJobConfig) error {
 	c.appRegList = config.AppRegList
 	c.ticker = time.NewTicker(time.Minute)
 	c.notifier = config.Notifier
-	c.level = levelValue
+	c.mode = mode
+	globalLevel := resolveGlobalLevel(config.Level)
+	c.certLevel = resolveLevel("cert", config.CertLevel, globalLevel)
+	c.secretLevel = resolveLevel("secret", config.SecretLevel, globalLevel)
+	c.appRegLevel = resolveLevel("app registration", config.AppRegLevel, globalLevel)
 	c.certWarningDays = config.CertWarningDays
 	c.secretWarningDays = config.SecretWarningDays
 	c.appRegWarningDays = config.AppRegWarningDays
 
 	return nil
+}
+
+// resolveGlobalLevel returns the configured global level, or Warning when it
+// is unset or invalid.
+func resolveGlobalLevel(value string) Level {
+	if strings.TrimSpace(value) == "" {
+		return Warning
+	}
+
+	level, ok := parseLevel(value)
+	if !ok {
+		log.Printf("Invalid notification level %q, falling back to %s", value, Warning)
+		return Warning
+	}
+
+	return level
+}
+
+// resolveLevel returns the type-specific override when valid, otherwise the
+// already-resolved global level.
+func resolveLevel(credType string, override string, global Level) Level {
+	if strings.TrimSpace(override) == "" {
+		return global
+	}
+
+	level, ok := parseLevel(override)
+	if !ok {
+		log.Printf("Invalid %s notification level %q, falling back to %s", credType, override, global)
+		return global
+	}
+
+	return level
 }
 
 func (c *CheckCredJob) RunNow() {
@@ -160,17 +244,19 @@ func (c *CheckCredJob) execute() {
 	secretResults := c.checkSecrets()
 	appRegResults := c.checkAppRegs()
 
+	var err error
 	if raw, ok := c.notifier.(RawNotifier); ok {
-		if err := raw.NotifyRaw(
-			c.filterCertResults(certResults),
-			c.filterSecretResults(secretResults),
-			c.filterAppRegResults(appRegResults),
-		); err != nil {
-			log.Printf("Error sending notification: %s", err)
-		}
-		return
+		err = c.notifyRaw(raw, certResults, secretResults, appRegResults)
+	} else {
+		err = c.notifyGroups(certResults, secretResults, appRegResults)
 	}
 
+	if err != nil {
+		log.Printf("Error sending notification: %s", err)
+	}
+}
+
+func (c *CheckCredJob) notifyGroups(certResults []*models.CertCheckResult, secretResults []*models.SecretCheckResult, appRegResults []*models.AppRegCheckResult) error {
 	groups := []CheckNotificationGroup{}
 	if certGroup := c.buildCertGroup(certResults); len(certGroup.Items) > 0 {
 		groups = append(groups, certGroup)
@@ -182,9 +268,63 @@ func (c *CheckCredJob) execute() {
 		groups = append(groups, appRegGroup)
 	}
 
-	if err := c.notifier.Notify(groups); err != nil {
-		log.Printf("Error sending notification: %s", err)
+	if c.mode != Split {
+		return c.notifier.Notify(groups)
 	}
+
+	sends := []labeledSend{}
+	for _, group := range groups {
+		sends = append(sends, labeledSend{group.Label, func() error {
+			return c.notifier.Notify([]CheckNotificationGroup{group})
+		}})
+	}
+
+	return sendAll(sends)
+}
+
+func (c *CheckCredJob) notifyRaw(raw RawNotifier, certResults []*models.CertCheckResult, secretResults []*models.SecretCheckResult, appRegResults []*models.AppRegCheckResult) error {
+	certs := c.filterCertResults(certResults)
+	secrets := c.filterSecretResults(secretResults)
+	appRegs := c.filterAppRegResults(appRegResults)
+
+	if c.mode != Split {
+		return raw.NotifyRaw(certs, secrets, appRegs)
+	}
+
+	noCerts := []*models.CertCheckResult{}
+	noSecrets := []*models.SecretCheckResult{}
+	noAppRegs := []*models.AppRegCheckResult{}
+
+	sends := []labeledSend{}
+	if len(certs) > 0 {
+		sends = append(sends, labeledSend{CertificatesLabel, func() error { return raw.NotifyRaw(certs, noSecrets, noAppRegs) }})
+	}
+	if len(secrets) > 0 {
+		sends = append(sends, labeledSend{SecretsLabel, func() error { return raw.NotifyRaw(noCerts, secrets, noAppRegs) }})
+	}
+	if len(appRegs) > 0 {
+		sends = append(sends, labeledSend{AppRegistrationsLabel, func() error { return raw.NotifyRaw(noCerts, noSecrets, appRegs) }})
+	}
+
+	return sendAll(sends)
+}
+
+type labeledSend struct {
+	label string
+	send  func() error
+}
+
+// sendAll runs every send in order, continuing past failures, and returns the
+// joined errors labeled by credential type.
+func sendAll(sends []labeledSend) error {
+	errs := []error{}
+	for _, s := range sends {
+		if err := s.send(); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", s.label, err))
+		}
+	}
+
+	return errors.Join(errs...)
 }
 
 func (c *CheckCredJob) checkCerts() []*models.CertCheckResult {
@@ -232,7 +372,7 @@ func (c *CheckCredJob) checkAppRegs() []*models.AppRegCheckResult {
 func (c *CheckCredJob) filterCertResults(results []*models.CertCheckResult) []*models.CertCheckResult {
 	filtered := []*models.CertCheckResult{}
 	for _, r := range results {
-		if c.shouldNotify(CheckNotification{IsValid: r.IsValid, ExpirationWarning: r.ExpirationWarning}) {
+		if shouldNotify(c.certLevel, CheckNotification{IsValid: r.IsValid, ExpirationWarning: r.ExpirationWarning}) {
 			filtered = append(filtered, r)
 		}
 	}
@@ -242,7 +382,7 @@ func (c *CheckCredJob) filterCertResults(results []*models.CertCheckResult) []*m
 func (c *CheckCredJob) filterSecretResults(results []*models.SecretCheckResult) []*models.SecretCheckResult {
 	filtered := []*models.SecretCheckResult{}
 	for _, r := range results {
-		if c.shouldNotify(CheckNotification{IsValid: r.IsValid, ExpirationWarning: r.ExpirationWarning}) {
+		if shouldNotify(c.secretLevel, CheckNotification{IsValid: r.IsValid, ExpirationWarning: r.ExpirationWarning}) {
 			filtered = append(filtered, r)
 		}
 	}
@@ -254,7 +394,7 @@ func (c *CheckCredJob) filterAppRegResults(results []*models.AppRegCheckResult) 
 	for _, r := range results {
 		filteredCreds := []models.AppRegCredentialResult{}
 		for _, cred := range r.Credentials {
-			if c.shouldNotify(CheckNotification{IsValid: cred.IsValid, ExpirationWarning: cred.ExpirationWarning}) {
+			if shouldNotify(c.appRegLevel, CheckNotification{IsValid: cred.IsValid, ExpirationWarning: cred.ExpirationWarning}) {
 				filteredCreds = append(filteredCreds, cred)
 			}
 		}
@@ -284,10 +424,10 @@ func (c *CheckCredJob) filterAppRegResults(results []*models.AppRegCheckResult) 
 }
 
 func (c *CheckCredJob) buildCertGroup(results []*models.CertCheckResult) CheckNotificationGroup {
-	group := CheckNotificationGroup{Label: "Certificates", ShowSource: true}
+	group := CheckNotificationGroup{Label: CertificatesLabel, ShowSource: true}
 	for _, checkStatus := range results {
 		n := c.getCertNotification(checkStatus)
-		if c.shouldNotify(n) {
+		if shouldNotify(c.certLevel, n) {
 			group.Items = append(group.Items, n)
 		}
 	}
@@ -295,10 +435,10 @@ func (c *CheckCredJob) buildCertGroup(results []*models.CertCheckResult) CheckNo
 }
 
 func (c *CheckCredJob) buildSecretGroup(results []*models.SecretCheckResult) CheckNotificationGroup {
-	group := CheckNotificationGroup{Label: "Secrets", ShowSource: true}
+	group := CheckNotificationGroup{Label: SecretsLabel, ShowSource: true}
 	for _, checkStatus := range results {
 		n := c.getSecretNotification(checkStatus)
-		if c.shouldNotify(n) {
+		if shouldNotify(c.secretLevel, n) {
 			group.Items = append(group.Items, n)
 		}
 	}
@@ -306,11 +446,11 @@ func (c *CheckCredJob) buildSecretGroup(results []*models.SecretCheckResult) Che
 }
 
 func (c *CheckCredJob) buildAppRegGroup(results []*models.AppRegCheckResult) CheckNotificationGroup {
-	group := CheckNotificationGroup{Label: "App Registrations", ShowSource: true}
+	group := CheckNotificationGroup{Label: AppRegistrationsLabel, ShowSource: true}
 	for _, checkStatus := range results {
 		for _, cred := range checkStatus.Credentials {
 			n := c.getCredentialNotification(checkStatus.AppName, cred)
-			if c.shouldNotify(n) {
+			if shouldNotify(c.appRegLevel, n) {
 				group.Items = append(group.Items, n)
 			}
 		}
@@ -318,8 +458,8 @@ func (c *CheckCredJob) buildAppRegGroup(results []*models.AppRegCheckResult) Che
 	return group
 }
 
-func (c *CheckCredJob) shouldNotify(model CheckNotification) bool {
-	return c.level == Info || !model.IsValid || (c.level == Warning && model.ExpirationWarning)
+func shouldNotify(level Level, model CheckNotification) bool {
+	return level == Info || !model.IsValid || (level == Warning && model.ExpirationWarning)
 }
 
 func (c *CheckCredJob) getCertNotification(certificate *models.CertCheckResult) CheckNotification {

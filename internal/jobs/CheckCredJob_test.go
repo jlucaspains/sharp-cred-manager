@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -11,17 +12,30 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type notifyCall struct {
+	groups []CheckNotificationGroup
+}
+
 type mockNotifier struct {
 	executed bool
+	calls    []notifyCall
+	failOn   map[int]error
 }
 
 func (m *mockNotifier) Notify(groups []CheckNotificationGroup) error {
 	m.executed = true
-	return nil
+	m.calls = append(m.calls, notifyCall{groups: groups})
+	return m.failOn[len(m.calls)-1]
 }
 
 func (m *mockNotifier) IsReady() bool {
 	return true
+}
+
+type rawNotifyCall struct {
+	certs   []*models.CertCheckResult
+	secrets []*models.SecretCheckResult
+	appRegs []*models.AppRegCheckResult
 }
 
 type mockRawNotifier struct {
@@ -29,6 +43,7 @@ type mockRawNotifier struct {
 	certResults     []*models.CertCheckResult
 	secretResults   []*models.SecretCheckResult
 	appRegResults   []*models.AppRegCheckResult
+	calls           []rawNotifyCall
 }
 
 func (m *mockRawNotifier) Notify(_ []CheckNotificationGroup) error {
@@ -44,6 +59,7 @@ func (m *mockRawNotifier) NotifyRaw(certs []*models.CertCheckResult, secrets []*
 	m.certResults = certs
 	m.secretResults = secrets
 	m.appRegResults = appRegs
+	m.calls = append(m.calls, rawNotifyCall{certs: certs, secrets: secrets, appRegs: appRegs})
 	return nil
 }
 
@@ -626,7 +642,7 @@ func TestCheckCredJob_UsesRawNotifier(t *testing.T) {
 }
 
 func TestFilterCertResults_ExcludesInfo(t *testing.T) {
-	job := &CheckCredJob{level: Warning}
+	job := &CheckCredJob{certLevel: Warning, secretLevel: Warning, appRegLevel: Warning}
 	results := []*models.CertCheckResult{
 		{IsValid: true, ExpirationWarning: false},  // should be excluded at Warning level
 		{IsValid: true, ExpirationWarning: true},   // should be included
@@ -639,7 +655,7 @@ func TestFilterCertResults_ExcludesInfo(t *testing.T) {
 }
 
 func TestFilterSecretResults_ExcludesInfo(t *testing.T) {
-	job := &CheckCredJob{level: Warning}
+	job := &CheckCredJob{certLevel: Warning, secretLevel: Warning, appRegLevel: Warning}
 	results := []*models.SecretCheckResult{
 		{IsValid: true, ExpirationWarning: false},
 		{IsValid: true, ExpirationWarning: true},
@@ -650,7 +666,7 @@ func TestFilterSecretResults_ExcludesInfo(t *testing.T) {
 }
 
 func TestFilterAppRegResults_FiltersCredentials(t *testing.T) {
-	job := &CheckCredJob{level: Warning}
+	job := &CheckCredJob{certLevel: Warning, secretLevel: Warning, appRegLevel: Warning}
 	results := []*models.AppRegCheckResult{
 		{
 			AppName: "App1",
@@ -676,4 +692,225 @@ func TestFilterAppRegResults_FiltersCredentials(t *testing.T) {
 	assert.Equal(t, 1, len(filtered[0].Credentials), "Only the warning credential should remain")
 	assert.True(t, filtered[0].ExpirationWarning, "Recomputed ExpirationWarning should be true")
 	assert.True(t, filtered[0].IsValid, "Recomputed IsValid should be true (remaining cred is valid)")
+}
+
+func TestParseLevel(t *testing.T) {
+	cases := map[string]Level{"Info": Info, "info": Info, "WARNING": Warning, " error ": Error}
+	for value, expected := range cases {
+		level, ok := parseLevel(value)
+		assert.True(t, ok, value)
+		assert.Equal(t, expected, level, value)
+	}
+
+	_, ok := parseLevel("Loud")
+	assert.False(t, ok)
+}
+
+func TestResolveGlobalLevel(t *testing.T) {
+	assert.Equal(t, Warning, resolveGlobalLevel(""))
+	assert.Equal(t, Info, resolveGlobalLevel("info"))
+	assert.Equal(t, Warning, resolveGlobalLevel("Errors"))
+}
+
+func TestResolveLevel(t *testing.T) {
+	assert.Equal(t, Info, resolveLevel("cert", "", Info))
+	assert.Equal(t, Error, resolveLevel("cert", "Error", Info))
+	assert.Equal(t, Error, resolveLevel("cert", "error", Info))
+	assert.Equal(t, Info, resolveLevel("cert", "Loud", Info))
+	assert.Equal(t, Warning, resolveLevel("cert", "   ", Warning))
+}
+
+func TestJobInitLevels(t *testing.T) {
+	job := &CheckCredJob{}
+	err := job.Init(CheckCredJobConfig{
+		Schedule:  "* * * * *",
+		Level:     "Error",
+		CertLevel: "Info",
+		Notifier:  &mockNotifier{},
+	})
+	defer job.Stop()
+	assert.Nil(t, err)
+	assert.Equal(t, Info, job.certLevel)
+	assert.Equal(t, Error, job.secretLevel)
+	assert.Equal(t, Error, job.appRegLevel)
+}
+
+func TestJobInitDefaultLevels(t *testing.T) {
+	job := &CheckCredJob{}
+	err := job.Init(CheckCredJobConfig{Schedule: "* * * * *", Notifier: &mockNotifier{}})
+	defer job.Stop()
+	assert.Nil(t, err)
+	assert.Equal(t, Warning, job.certLevel)
+	assert.Equal(t, Warning, job.secretLevel)
+	assert.Equal(t, Warning, job.appRegLevel)
+	assert.Equal(t, Combined, job.mode)
+}
+
+func TestJobInitMode(t *testing.T) {
+	for _, value := range []string{"split", "Split", "SPLIT", " split "} {
+		job := &CheckCredJob{}
+		job.Init(CheckCredJobConfig{Schedule: "* * * * *", Mode: value, Notifier: &mockNotifier{}})
+		job.Stop()
+		assert.Equal(t, Split, job.mode, value)
+	}
+
+	for _, value := range []string{"", "combined", "bogus"} {
+		job := &CheckCredJob{}
+		job.Init(CheckCredJobConfig{Schedule: "* * * * *", Mode: value, Notifier: &mockNotifier{}})
+		job.Stop()
+		assert.Equal(t, Combined, job.mode, value)
+	}
+}
+
+func futureDate(days int) time.Time {
+	return time.Now().Add(time.Duration(days*24) * time.Hour)
+}
+
+// sampleResults returns one valid (non-warning) and one warning item per type.
+func sampleResults() ([]*models.CertCheckResult, []*models.SecretCheckResult, []*models.AppRegCheckResult) {
+	expires := futureDate(10)
+	certs := []*models.CertCheckResult{
+		{DisplayName: "valid-cert", IsValid: true, CertEndDate: futureDate(200)},
+		{DisplayName: "warn-cert", IsValid: true, ExpirationWarning: true, CertEndDate: futureDate(10)},
+	}
+	secrets := []*models.SecretCheckResult{
+		{DisplayName: "valid-secret", IsValid: true},
+		{DisplayName: "warn-secret", IsValid: true, ExpirationWarning: true, ExpiresOn: &expires},
+	}
+	appRegs := []*models.AppRegCheckResult{
+		{
+			AppName: "App1",
+			Credentials: []models.AppRegCredentialResult{
+				{DisplayName: "valid-cred", IsValid: true},
+				{DisplayName: "warn-cred", IsValid: true, ExpirationWarning: true, ValidityInDays: 10},
+			},
+		},
+	}
+	return certs, secrets, appRegs
+}
+
+func TestNotifyGroupsCombinedPerTypeLevels(t *testing.T) {
+	notifier := &mockNotifier{}
+	job := &CheckCredJob{notifier: notifier, mode: Combined, certLevel: Info, secretLevel: Error, appRegLevel: Warning}
+	certs, secrets, appRegs := sampleResults()
+
+	err := job.notifyGroups(certs, secrets, appRegs)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(notifier.calls))
+	groups := notifier.calls[0].groups
+	assert.Equal(t, 2, len(groups), "secrets have nothing at Error level")
+	assert.Equal(t, "Certificates", groups[0].Label)
+	assert.Equal(t, 2, len(groups[0].Items), "Info includes valid certs")
+	assert.Equal(t, "App Registrations", groups[1].Label)
+	assert.Equal(t, 1, len(groups[1].Items))
+}
+
+func TestNotifyGroupsCombinedSendsWhenEmpty(t *testing.T) {
+	notifier := &mockNotifier{}
+	job := &CheckCredJob{notifier: notifier, mode: Combined, certLevel: Error, secretLevel: Error, appRegLevel: Error}
+	certs, secrets, appRegs := sampleResults()
+
+	err := job.notifyGroups(certs, secrets, appRegs)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(notifier.calls))
+	assert.Equal(t, 0, len(notifier.calls[0].groups))
+}
+
+func TestNotifyGroupsSplit(t *testing.T) {
+	notifier := &mockNotifier{}
+	job := &CheckCredJob{notifier: notifier, mode: Split, certLevel: Warning, secretLevel: Warning, appRegLevel: Warning}
+	certs, secrets, appRegs := sampleResults()
+
+	err := job.notifyGroups(certs, secrets, appRegs)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 3, len(notifier.calls))
+	for i, label := range []string{"Certificates", "Secrets", "App Registrations"} {
+		assert.Equal(t, 1, len(notifier.calls[i].groups))
+		assert.Equal(t, label, notifier.calls[i].groups[0].Label)
+	}
+}
+
+func TestNotifyGroupsSplitSkipsEmptyTypes(t *testing.T) {
+	notifier := &mockNotifier{}
+	job := &CheckCredJob{notifier: notifier, mode: Split, certLevel: Warning, secretLevel: Error, appRegLevel: Warning}
+	certs, secrets, _ := sampleResults()
+
+	err := job.notifyGroups(certs, secrets, []*models.AppRegCheckResult{})
+
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(notifier.calls))
+	assert.Equal(t, "Certificates", notifier.calls[0].groups[0].Label)
+}
+
+func TestNotifyGroupsSplitNothingToSend(t *testing.T) {
+	notifier := &mockNotifier{}
+	job := &CheckCredJob{notifier: notifier, mode: Split, certLevel: Error, secretLevel: Error, appRegLevel: Error}
+	certs, secrets, appRegs := sampleResults()
+
+	err := job.notifyGroups(certs, secrets, appRegs)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(notifier.calls))
+}
+
+func TestNotifyGroupsSplitContinuesOnFailure(t *testing.T) {
+	notifier := &mockNotifier{failOn: map[int]error{0: errors.New("boom")}}
+	job := &CheckCredJob{notifier: notifier, mode: Split, certLevel: Warning, secretLevel: Warning, appRegLevel: Warning}
+	certs, secrets, appRegs := sampleResults()
+
+	err := job.notifyGroups(certs, secrets, appRegs)
+
+	assert.Equal(t, 3, len(notifier.calls), "remaining sends should still happen")
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "Certificates: boom")
+}
+
+func TestNotifyRawCombined(t *testing.T) {
+	notifier := &mockRawNotifier{}
+	job := &CheckCredJob{notifier: notifier, mode: Combined, certLevel: Info, secretLevel: Error, appRegLevel: Warning}
+	certs, secrets, appRegs := sampleResults()
+
+	err := job.notifyRaw(notifier, certs, secrets, appRegs)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(notifier.calls))
+	assert.Equal(t, 2, len(notifier.calls[0].certs))
+	assert.Equal(t, 0, len(notifier.calls[0].secrets))
+	assert.Equal(t, 1, len(notifier.calls[0].appRegs))
+}
+
+func TestNotifyRawSplit(t *testing.T) {
+	notifier := &mockRawNotifier{}
+	job := &CheckCredJob{notifier: notifier, mode: Split, certLevel: Warning, secretLevel: Warning, appRegLevel: Warning}
+	certs, secrets, appRegs := sampleResults()
+
+	err := job.notifyRaw(notifier, certs, secrets, appRegs)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 3, len(notifier.calls))
+	assert.Equal(t, 1, len(notifier.calls[0].certs))
+	assert.Equal(t, 0, len(notifier.calls[0].secrets))
+	assert.Equal(t, 0, len(notifier.calls[0].appRegs))
+	assert.Equal(t, 0, len(notifier.calls[1].certs))
+	assert.Equal(t, 1, len(notifier.calls[1].secrets))
+	assert.Equal(t, 0, len(notifier.calls[1].appRegs))
+	assert.Equal(t, 0, len(notifier.calls[2].certs))
+	assert.Equal(t, 0, len(notifier.calls[2].secrets))
+	assert.Equal(t, 1, len(notifier.calls[2].appRegs))
+	assert.NotNil(t, notifier.calls[0].secrets, "empty lists should be non-nil so they marshal as []")
+}
+
+func TestNotifyRawSplitSkipsEmptyTypes(t *testing.T) {
+	notifier := &mockRawNotifier{}
+	job := &CheckCredJob{notifier: notifier, mode: Split, certLevel: Error, secretLevel: Warning, appRegLevel: Error}
+	certs, secrets, appRegs := sampleResults()
+
+	err := job.notifyRaw(notifier, certs, secrets, appRegs)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(notifier.calls))
+	assert.Equal(t, 1, len(notifier.calls[0].secrets))
 }

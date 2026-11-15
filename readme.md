@@ -155,7 +155,7 @@ az containerapp create \
 ```
 
 ## Jobs and Webhook Notifications
-The app can be configured to run jobs at a given schedule. The jobs will check all configured websites and secrets together and send a **single combined message** to a Webhook. Currently, Teams and Slack are supported.
+The app can be configured to run jobs at a given schedule. The jobs will check all configured websites and secrets together and send a **single combined message** to a Webhook (or one message per credential type, see [Notification modes and levels](#notification-modes-and-levels)). Currently, Teams and Slack are supported.
 
 Set `CHECK_CRED_JOB_SCHEDULE` to a cron expression to run both certificate and secret checks on the same schedule.
 
@@ -168,6 +168,25 @@ docker run -it -p 8000:8000 `
     --env CHECK_CRED_JOB_SCHEDULE=* * * * * `
     --env WEBHOOK_URL=ReplaceWithWebhookUrl `
     --env WEBHOOK_TYPE=teams `
+    jlucaspains/sharp-cred-manager
+```
+
+### Notification modes and levels
+By default, one combined message is sent with all credential types. Set `CHECK_CRED_JOB_NOTIFICATION_MODE=split` to send one message per credential type (Certificates, Secrets, App Registrations) instead. In split mode:
+- No message is sent for a type with nothing to report at its notification level.
+- For the generic webhook, each request carries only one populated list; the others are empty arrays.
+
+`CHECK_CRED_JOB_NOTIFICATION_LEVEL` sets the minimum level for all credential types. Each type can override it with `CERT_NOTIFICATION_LEVEL`, `SECRET_NOTIFICATION_LEVEL`, or `APP_REG_NOTIFICATION_LEVEL`. Overrides work in both modes.
+
+```bash
+docker run -it -p 8000:8000 `
+    --env SITE_1=https://expired.badssl.com/ `
+    --env CHECK_CRED_JOB_SCHEDULE=* * * * * `
+    --env WEBHOOK_URL=ReplaceWithWebhookUrl `
+    --env WEBHOOK_TYPE=teams `
+    --env CHECK_CRED_JOB_NOTIFICATION_MODE=split `
+    --env CHECK_CRED_JOB_NOTIFICATION_LEVEL=Warning `
+    --env SECRET_NOTIFICATION_LEVEL=Error `
     jlucaspains/sharp-cred-manager
 ```
 
@@ -239,7 +258,11 @@ The app registration card is shown as **invalid** (red) if any credential is inv
 | APPREGISTRATION_1..N              | Azure App Registration app id to monitor. All client secrets and certificates on the registration are monitored. | |
 | APP_REG_WARNING_VALIDITY_DAYS     | Defines how many days from today an app registration credential needs to have before a warning is raised | 30              |
 | MESSAGE_MENTIONS                  | Comma-separated list of email addresses to mention in webhook notifications.    |                                               |
-| CHECK_CRED_JOB_NOTIFICATION_LEVEL | Defines minimum notification level for jobs (cert and secret). Values are Info, Warning, or Error | Warning              |
+| CHECK_CRED_JOB_NOTIFICATION_LEVEL | Defines the minimum notification level for all credential types. Values are Info, Warning, or Error. Can be overridden per type. | Warning |
+| CERT_NOTIFICATION_LEVEL           | Overrides the notification level for certificates. Values are Info, Warning, or Error | CHECK_CRED_JOB_NOTIFICATION_LEVEL |
+| SECRET_NOTIFICATION_LEVEL         | Overrides the notification level for Key Vault secrets. Values are Info, Warning, or Error | CHECK_CRED_JOB_NOTIFICATION_LEVEL |
+| APP_REG_NOTIFICATION_LEVEL        | Overrides the notification level for app registration credentials. Values are Info, Warning, or Error | CHECK_CRED_JOB_NOTIFICATION_LEVEL |
+| CHECK_CRED_JOB_NOTIFICATION_MODE  | `combined` sends one message with all credential types; `split` sends one message per type | combined |
 | HEADLESS                          | If set to "true", the web server does not start.                                |                                               |
 
 ## Security considerations
