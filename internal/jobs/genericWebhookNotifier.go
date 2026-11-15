@@ -3,7 +3,6 @@ package jobs
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/jlucaspains/sharp-cred-manager/internal/models"
@@ -16,6 +15,7 @@ type GenericWebhookNotifier struct {
 	AuthUsername string
 	AuthPassword string
 	httpClient   *http.Client
+	retryPolicy  retryPolicy
 }
 
 type GenericWebhookPayload struct {
@@ -57,35 +57,27 @@ func (g *GenericWebhookNotifier) NotifyRaw(certs []*models.CertCheckResult, secr
 		return err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, g.WebhookUrl, bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	switch g.AuthType {
-	case "bearer":
-		req.Header.Set("Authorization", "Bearer "+g.AuthToken)
-	case "basic":
-		req.SetBasicAuth(g.AuthUsername, g.AuthPassword)
+	if g.retryPolicy.maxAttempts == 0 {
+		g.retryPolicy = defaultRetryPolicy
 	}
 
-	resp, err := g.getClient().Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
-		buf := new(bytes.Buffer)
-		buf.ReadFrom(resp.Body)
-		if buf.Len() > 0 {
-			return fmt.Errorf("error sending notification to generic webhook. Error %s: %s", resp.Status, buf.String())
+	newRequest := func() (*http.Request, error) {
+		req, err := http.NewRequest(http.MethodPost, g.WebhookUrl, bytes.NewReader(body))
+		if err != nil {
+			return nil, err
 		}
-		return fmt.Errorf("error sending notification to generic webhook. Error %s", resp.Status)
+		req.Header.Set("Content-Type", "application/json")
+
+		switch g.AuthType {
+		case "bearer":
+			req.Header.Set("Authorization", "Bearer "+g.AuthToken)
+		case "basic":
+			req.SetBasicAuth(g.AuthUsername, g.AuthPassword)
+		}
+		return req, nil
 	}
 
-	return nil
+	return postWithRetry(g.getClient(), newRequest, "generic webhook", g.retryPolicy)
 }
 
 func (g *GenericWebhookNotifier) IsReady() bool {
@@ -94,7 +86,7 @@ func (g *GenericWebhookNotifier) IsReady() bool {
 
 func (g *GenericWebhookNotifier) getClient() *http.Client {
 	if g.httpClient == nil {
-		g.httpClient = &http.Client{}
+		g.httpClient = &http.Client{Timeout: webhookClientTimeout}
 	}
 	return g.httpClient
 }

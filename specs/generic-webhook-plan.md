@@ -117,9 +117,6 @@ func (m *TeamsSlackNotifier) Notify(groups []CheckNotificationGroup) error {
 		return err
 	}
 
-	stringBody := templateBody.String()
-	fmt.Println(stringBody)
-
 	response, err := client.Post(m.WebhookUrl, "application/json", bytes.NewReader(templateBody.Bytes()))
 
 	if err != nil {
