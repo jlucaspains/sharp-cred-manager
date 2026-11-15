@@ -59,18 +59,7 @@ func startJobs(certList []models.CheckCertItem, secretList []models.CheckSecretI
 
 	if ok {
 		log.Printf("Starting job engine with cron: %s", schedule)
-		level, _ := os.LookupEnv("CHECK_CRED_JOB_NOTIFICATION_LEVEL")
-		err := checkCredJob.Init(jobs.CheckCredJobConfig{
-			Schedule:          schedule,
-			Level:             level,
-			CertWarningDays:   getCertExpirationWarningDays(),
-			SecretWarningDays: getSecretWarningValidityDays(),
-			AppRegWarningDays: getAppRegWarningValidityDays(),
-			CertList:          certList,
-			SecretList:        secretList,
-			AppRegList:        appRegList,
-			Notifier:          getJobNotifier(),
-		})
+		err := checkCredJob.Init(getCheckCredJobConfig(schedule, certList, secretList, appRegList))
 		if err == nil {
 			checkCredJob.Start()
 			log.Print("Job engine started")
@@ -79,6 +68,30 @@ func startJobs(certList []models.CheckCertItem, secretList []models.CheckSecretI
 		}
 	} else {
 		log.Println("No schedule defined for jobs")
+	}
+}
+
+func getCheckCredJobConfig(schedule string, certList []models.CheckCertItem, secretList []models.CheckSecretItem, appRegList []models.CheckAppRegItem) jobs.CheckCredJobConfig {
+	level, _ := os.LookupEnv("CHECK_CRED_JOB_NOTIFICATION_LEVEL")
+	mode, _ := os.LookupEnv("CHECK_CRED_JOB_NOTIFICATION_MODE")
+	certLevel, _ := os.LookupEnv("CERT_NOTIFICATION_LEVEL")
+	secretLevel, _ := os.LookupEnv("SECRET_NOTIFICATION_LEVEL")
+	appRegLevel, _ := os.LookupEnv("APP_REG_NOTIFICATION_LEVEL")
+
+	return jobs.CheckCredJobConfig{
+		Schedule:          schedule,
+		Level:             level,
+		Mode:              mode,
+		CertLevel:         certLevel,
+		SecretLevel:       secretLevel,
+		AppRegLevel:       appRegLevel,
+		CertWarningDays:   getCertExpirationWarningDays(),
+		SecretWarningDays: getSecretWarningValidityDays(),
+		AppRegWarningDays: getAppRegWarningValidityDays(),
+		CertList:          certList,
+		SecretList:        secretList,
+		AppRegList:        appRegList,
+		Notifier:          getJobNotifier(),
 	}
 }
 
@@ -215,18 +228,7 @@ func runOnce(siteList []models.CheckCertItem, secretList []models.CheckSecretIte
 	}
 
 	log.Print("Running the checkCredJob once")
-	level, _ := os.LookupEnv("CHECK_CRED_JOB_NOTIFICATION_LEVEL")
-	err := checkCredJob.Init(jobs.CheckCredJobConfig{
-		Schedule:          "* * * * *",
-		Level:             level,
-		CertWarningDays:   getCertExpirationWarningDays(),
-		SecretWarningDays: getSecretWarningValidityDays(),
-		AppRegWarningDays: getAppRegWarningValidityDays(),
-		CertList:          siteList,
-		SecretList:        secretList,
-		AppRegList:        appRegList,
-		Notifier:          getJobNotifier(),
-	})
+	err := checkCredJob.Init(getCheckCredJobConfig("* * * * *", siteList, secretList, appRegList))
 	if err == nil {
 		checkCredJob.RunNow()
 	} else {
