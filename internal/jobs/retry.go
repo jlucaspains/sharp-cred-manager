@@ -21,9 +21,9 @@ const webhookClientTimeout = 30 * time.Second
 const maxErrorBodyBytes = 4 * 1024
 
 type retryPolicy struct {
-	maxAttempts   int                 // total attempts, counting the first send
-	baseDelay     time.Duration       // first backoff wait, doubled after each failure
-	maxRetryAfter time.Duration       // cap applied to Retry-After values
+	maxAttempts   int
+	baseDelay     time.Duration // first backoff wait, doubled after each failure
+	maxRetryAfter time.Duration
 	jitter        float64             // max random extra time as a fraction of the delay
 	sleep         func(time.Duration) // time.Sleep in production; replaced in tests
 }
@@ -36,7 +36,6 @@ var defaultRetryPolicy = retryPolicy{
 	sleep:         time.Sleep,
 }
 
-// resolveRetryPolicy returns p, or defaultRetryPolicy when p is the zero value.
 func resolveRetryPolicy(p retryPolicy) retryPolicy {
 	if p.maxAttempts <= 0 {
 		return defaultRetryPolicy
@@ -47,9 +46,6 @@ func resolveRetryPolicy(p retryPolicy) retryPolicy {
 	return p
 }
 
-// postWithRetry sends a request built by newRequest, retrying on retryable
-// failures. newRequest is called once per attempt so that the request body is
-// rebuilt each time. It returns nil on 200/202, otherwise the last error.
 func postWithRetry(client *http.Client, newRequest func() (*http.Request, error), target string, p retryPolicy) error {
 	p = resolveRetryPolicy(p)
 
@@ -157,7 +153,6 @@ func parseRetryAfter(header string, now time.Time) (time.Duration, bool) {
 	return 0, false
 }
 
-// backoffDelay returns baseDelay * 2^(attempt-1) plus up to jitter extra time.
 func backoffDelay(attempt int, p retryPolicy) time.Duration {
 	delay := p.baseDelay << (attempt - 1)
 	if p.jitter > 0 {
